@@ -12,11 +12,8 @@ struct Element
 Element* s_allocatedPointersHead = nullptr;
 Element* s_allocatedPointersTail = nullptr;
 
-int counter = 0;
-
 void* operator new(size_t size)
 {
-	counter++;
 	if (size == 0)
         ++size;
 	void* ptr = std::malloc(size);
@@ -46,7 +43,6 @@ void* operator new(size_t size)
 
 void operator delete(void* p)
 {
-	counter--;
 	auto ite1 = s_allocatedPointersHead;
 	auto ite2 = s_allocatedPointersHead;
 	while (ite1 != nullptr)

@@ -19,6 +19,15 @@ int main()
 	for (int i = 0; i < 10; i++)
 		st = new MyStruct();
 	dummy();
+	dummy();
+	dummy();
+	dummy();
+	dummy();
+	dummy();
+	dummy();
+	dummy();
+	dummy();
+	dummy();
 	CollectGarbage();
 }
 
