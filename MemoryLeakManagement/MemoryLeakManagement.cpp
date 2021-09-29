@@ -7,37 +7,19 @@ struct MyStruct { int x; double y; };
 
 void dummy()
 {
-	int* pz =  new int(9);
-	//s_allocatedPointers[&pz] = pz;
-
 	MyStruct* st = new MyStruct();
-	//s_allocatedPointers[&st] = st;
+	for(int i=0; i< 9; i++)
+	  st = new MyStruct();
 }
 
 
 int main()
 {
-	double* px = new double(1);
-	//s_allocatedPointers[&px] = px;
-	int* py = new int(10);
+	MyStruct* st = new MyStruct();
+	for (int i = 0; i < 10; i++)
+		st = new MyStruct();
+	dummy();
 	CollectGarbage();
-	//s_allocatedPointers[&py] = py;
-	//dummy();
-	/*void* stackBottom,
-		* stackTop;
-	void** teb = (void**)NtCurrentTeb();
-	stackBottom = teb[2];
-	stackTop = teb[1];
-
-	while (stackBottom < stackTop)
-	{
-		if (s_allocatedPointers.find(stackBottom) != s_allocatedPointers.end())
-		{
-			if(*static_cast<long*>(stackBottom) == (long)s_allocatedPointers[stackBottom])
-				std::cout << "found" << std::endl;
-		}
-		stackBottom = static_cast<char*>(stackBottom) + 1;
-	}*/
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

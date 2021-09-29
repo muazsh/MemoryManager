@@ -1,28 +1,22 @@
 #pragma once
-#include <map>
-#include <list>
 #include <windows.h>
-
-enum class PointerType { Pointer, Array };
 
 struct Element
 {
-	void** m_ref;
 	void* m_ptr; 
-	PointerType m_ptrType; 
 	bool m_isGarbage;
 	Element* next;
-	Element() { m_ptr = nullptr; m_ref = nullptr;  m_ptrType = PointerType::Pointer; m_isGarbage = true; }
+	Element() { m_ptr = nullptr; next = nullptr; m_isGarbage = true; }
 };
-
-//std::map<void*, Element> s_allocatedPointers = {};
 
 Element* s_allocatedPointersHead = nullptr;
 Element* s_allocatedPointersTail = nullptr;
 
+int counter = 0;
+
 void* operator new(size_t size)
 {
-	char x = 0;
+	counter++;
 	if (size == 0)
         ++size;
 	void* ptr = std::malloc(size);
@@ -33,8 +27,6 @@ void* operator new(size_t size)
 		{
 			ptrElement->m_isGarbage = false;
 			ptrElement->m_ptr = ptr;
-			ptrElement->m_ref = &ptr;
-			ptrElement->m_ptrType = size <= 8 ? PointerType::Pointer : PointerType::Array;
 			ptrElement->next = nullptr;
 			if (s_allocatedPointersHead == nullptr)
 			{
@@ -46,7 +38,6 @@ void* operator new(size_t size)
 				s_allocatedPointersTail->next = ptrElement;
 				s_allocatedPointersTail = ptrElement;
 			}
-			void** teb = (void**)NtCurrentTeb();
 			return ptr;
 		}
 	}
@@ -55,13 +46,7 @@ void* operator new(size_t size)
 
 void operator delete(void* p)
 {
-	/*void* key = nullptr;
-	for (auto& elem : s_allocatedPointers)
-		if (elem.second.m_ptr == p)
-			key = elem.first;
-	if (key != nullptr)
-		s_allocatedPointers.erase(key);
-		*/
+	counter--;
 	auto ite1 = s_allocatedPointersHead;
 	auto ite2 = s_allocatedPointersHead;
 	while (ite1 != nullptr)
@@ -81,8 +66,6 @@ void operator delete(void* p)
 
 void ResetAllocatedPointerMap()
 {
-	//for (auto& elem : s_allocatedPointers)
-		//elem.second.m_isGarbage = true;
 	auto ite = s_allocatedPointersHead;
 	while (ite != nullptr)
 	{
@@ -99,34 +82,26 @@ Element* DetectMemoryLeak()
 	void* stackBottom;
 	void* stackTop;
 	void** teb = (void**)NtCurrentTeb();
-	stackBottom = teb[2];
 	stackTop = teb[1];
 
-	while (stackBottom < stackTop)
+	auto ite = s_allocatedPointersHead;
+	while (ite != nullptr)
 	{
-		auto ite = s_allocatedPointersHead;
-		while (ite != nullptr)
+		stackBottom = teb[2];
+		while (stackBottom < stackTop)
 		{
-			if (ite->m_ref == stackBottom)
-				break;
-			ite = ite->next;
-		}
-		//if (s_allocatedPointers.find(stackBottom) != s_allocatedPointers.end())
-		if(ite != nullptr)
-		{
-			//if (*static_cast<long*>(stackBottom) == (long)s_allocatedPointers[stackBottom].m_ptr)
-			    //s_allocatedPointers[stackBottom].m_isGarbage = false;
 			if (*static_cast<long*>(stackBottom) == (long)ite->m_ptr)
+			{
 				ite->m_isGarbage = false;
+				break;
+			}
+
+			stackBottom = static_cast<char*>(stackBottom) + sizeof(stackBottom);
 		}
-		stackBottom = static_cast<char*>(stackBottom) + 1;
+		ite = ite->next;
 	}
 
-	/*for (auto& elem : s_allocatedPointers)
-		if (elem.second.m_isGarbage)
-			results.push_back(elem.second);
-			*/
-	auto ite = s_allocatedPointersHead;
+	ite = s_allocatedPointersHead;
 	while (ite != nullptr)
 	{
 		if (ite->m_isGarbage)
@@ -148,23 +123,13 @@ Element* DetectMemoryLeak()
 	return resultsHead;
 }
 
-Element* CollectGarbage()
+void CollectGarbage()
 {
 	auto garbageList = DetectMemoryLeak();
-	/*for (auto& garbage : garbageList)
-	{
-		if (garbage->m_ptrType == PointerType::Pointer)
-			delete garbage->m_ptr;
-		else
-			delete[] garbage->m_ptr;
-	}*/
 	while (garbageList != nullptr)
 	{
-		if (garbageList->m_ptrType == PointerType::Pointer)
-			delete garbageList->m_ptr;
-		else
-			delete[] garbageList->m_ptr;
-		garbageList = garbageList->next;
+		auto next = garbageList->next;		
+		delete[] garbageList->m_ptr;
+		garbageList = next;
 	}
-	return garbageList;
 }
