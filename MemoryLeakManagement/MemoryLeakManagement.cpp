@@ -7,26 +7,19 @@ struct MyStruct { int x; double y; };
 
 void dummy()
 {
-	MyStruct* st = new MyStruct();
-	for(int i=0; i< 9; i++)
-	  st = new MyStruct();
+	MyStruct* st1 = new MyStruct();
 }
 
 
 int main()
 {
-	MyStruct* st = new MyStruct();
-	for (int i = 0; i < 10; i++)
+	{
+		MyStruct* st = new MyStruct();
 		st = new MyStruct();
-	dummy();
-	dummy();
-	dummy();
-	dummy();
-	dummy();
-	dummy();
-	dummy();
-	dummy();
-	dummy();
+		st = new MyStruct();
+		delete st;
+	}
+
 	dummy();
 	CollectGarbage();
 }

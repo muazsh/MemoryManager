@@ -12,8 +12,11 @@ struct Element
 Element* s_allocatedPointersHead = nullptr;
 Element* s_allocatedPointersTail = nullptr;
 
+int counter = 0;
+
 void* operator new(size_t size)
 {
+	counter++;
 	if (size == 0)
         ++size;
 	void* ptr = std::malloc(size);
@@ -43,19 +46,31 @@ void* operator new(size_t size)
 
 void operator delete(void* p)
 {
+	counter--;
 	auto ite1 = s_allocatedPointersHead;
 	auto ite2 = s_allocatedPointersHead;
+	if (ite1 != nullptr && ite1->m_ptr == p)
+	{
+		s_allocatedPointersHead = s_allocatedPointersHead->next;
+		free(ite1);
+		ite1 = nullptr;
+		ite2 = nullptr;
+		return;
+	}
 	while (ite1 != nullptr)
 	{
 		ite1 = ite1->next;
 		if (ite1 != nullptr && ite1->m_ptr == p)
 		{
 			ite2->next = ite1->next;
+			if (s_allocatedPointersTail == ite1)
+				s_allocatedPointersTail = ite2;
 			free(ite1);
 			ite1 = nullptr;
 			break;
 		}
 		ite2 = ite2->next;
+
 	}
 	free(p);
 }
@@ -86,7 +101,7 @@ Element* DetectMemoryLeak()
 		stackBottom = teb[2];
 		while (stackBottom < stackTop)
 		{
-			if (*static_cast<long*>(stackBottom) == (long)ite->m_ptr)
+			if (*static_cast<int*>(stackBottom) == (int)ite->m_ptr)
 			{
 				ite->m_isGarbage = false;
 				break;
