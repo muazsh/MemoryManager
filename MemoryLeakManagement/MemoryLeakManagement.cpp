@@ -1,17 +1,15 @@
 // MemoryLeakManagement.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 #include <iostream>
+#include <assert.h>
 #include "MemoryLeakManager.hpp"
 
-struct MyStruct { int x; double y; };
+struct MyStruct { double x; double y; };
 
-void Leak()
+void Leak1000()
 {
-	MyStruct* st1 = new MyStruct();
-	st1 = new MyStruct();
-	st1 = new MyStruct();
-	st1 = new MyStruct();
-	delete st1;
+	for (int i = 0; i < 1000; i++)
+		auto st = new MyStruct();
 }
 
 
@@ -19,27 +17,66 @@ int main()
 {
 	int dummy = 0;
 	stackTop = &dummy;
-	{
-		MyStruct* st = new MyStruct();
-		st = new MyStruct();
-		st = new MyStruct();
-		delete st;
-	}
-	MyStruct* st1 = new MyStruct();
-	MyStruct* st2 = new MyStruct();
-	MyStruct* st3 = new MyStruct();
-	MyStruct* st4 = new MyStruct();
-	Leak();
+
+	/*
+	* For all compilers:
+	* When garbage took place in a called function, all garbage are collected by CollectGarbage.
+	*/
+	Leak1000();
+	assert(1000 == GetAllocatedPointersCount());
 	CollectGarbage();
+	assert(0 == GetAllocatedPointersCount());
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+	for (int i = 0; i < 100; i++)
+	{
+		auto st1 = new MyStruct();
+		auto st2 = new MyStruct();
+	}
+	assert(200 == GetAllocatedPointersCount());
+	CollectGarbage();
+
+#ifdef _WIN32
+	/*
+	* For MSVC compiler:
+	* When garbage took place in the current function in loops, all garbage are collected by CollectGarbage
+	* except of the one of the last iteration
+	*/
+	assert(2 == GetAllocatedPointersCount());
+	delete s_allocatedPointersHead->m_ptr;
+	delete s_allocatedPointersHead->m_ptr;
+#endif // WIN32
+
+#ifndef _WIN32
+	/*
+	* For GCC and Clang CollectGarbage detects this kind of leaks.
+	*/
+	assert(0 == GetAllocatedPointersCount());
+#endif // !_WIN32
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+	{
+		auto st1 = new MyStruct();
+		st1 = new MyStruct();
+		auto st2 = new MyStruct();
+		st2 = new MyStruct();
+	}
+	assert(4 == GetAllocatedPointersCount());
+	CollectGarbage();
+
+#ifdef _WIN32
+	/*
+	* For MSVC compiler:
+	* When garbage took place in the current function in a block, CollectGarbage detects no leak.
+	*/
+	assert(4 == GetAllocatedPointersCount());
+#endif // _WIN32
+
+#ifndef _WIN32
+	/*
+	* For GCC and Clang CollectGarbage detects this kind of leaks.
+	*/
+	assert(0 == GetAllocatedPointersCount());
+#endif // !_WIN32
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

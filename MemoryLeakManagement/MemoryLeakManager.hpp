@@ -17,6 +17,17 @@ Element* s_allocatedPointersHead = nullptr;
 Element* s_allocatedPointersTail = nullptr;
 void* stackTop;
 
+int GetAllocatedPointersCount()
+{
+	int counter = 0;
+	auto ite = s_allocatedPointersHead;
+	while (ite != nullptr)
+	{
+		counter++;
+		ite = ite->next;
+	}
+	return counter;
+}
 void* operator new(size_t size)
 {
 	if (size == 0)
@@ -52,31 +63,38 @@ void operator delete(void* p)
 	auto ite2 = s_allocatedPointersHead;
 	if (ite1 != nullptr && ite1->m_ptr == p)
 	{
+		if (s_allocatedPointersHead == s_allocatedPointersTail)
+		{
+			s_allocatedPointersTail = s_allocatedPointersTail->next;
+		}
 		s_allocatedPointersHead = s_allocatedPointersHead->next;
 		free(ite1);
 		ite1 = nullptr;
 		ite2 = nullptr;
-		return;
 	}
-	while (ite1 != nullptr)
+	else
 	{
-		ite1 = ite1->next;
-		if (ite1 != nullptr && ite1->m_ptr == p)
+		while (ite1 != nullptr)
 		{
-			ite2->next = ite1->next;
-			if (s_allocatedPointersTail == ite1)
-				s_allocatedPointersTail = ite2;
-			free(ite1);
-			ite1 = nullptr;
-			break;
-		}
-		ite2 = ite2->next;
+			ite1 = ite1->next;
+			if (ite1 != nullptr && ite1->m_ptr == p)
+			{
+				ite2->next = ite1->next;
+				if (s_allocatedPointersTail == ite1)
+					s_allocatedPointersTail = ite2;
+				free(ite1);
+				ite1 = nullptr;
+				break;
+			}
+			ite2 = ite2->next;
 
+		}
 	}
 	free(p);
+	p = nullptr;
 }
 
-void ResetAllocatedPointerMap()
+void ResetAllocatedPointers()
 {
 	auto ite = s_allocatedPointersHead;
 	while (ite != nullptr)
@@ -88,7 +106,7 @@ void ResetAllocatedPointerMap()
 
 void DetectMemoryLeak()
 {
-	ResetAllocatedPointerMap();
+	ResetAllocatedPointers();
 	int dummy = 0;
 	void* stackBottom = &dummy;
 
