@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MemoryLeakManagement.cpp">
+    <ClCompile Include="MemoryLeakManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
