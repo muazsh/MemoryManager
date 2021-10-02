@@ -5,22 +5,31 @@
 
 struct MyStruct { int x; double y; };
 
-void dummy()
+void Leak()
 {
 	MyStruct* st1 = new MyStruct();
+	st1 = new MyStruct();
+	st1 = new MyStruct();
+	st1 = new MyStruct();
+	delete st1;
 }
 
 
 int main()
 {
+	int dummy = 0;
+	stackTop = &dummy;
 	{
 		MyStruct* st = new MyStruct();
 		st = new MyStruct();
 		st = new MyStruct();
 		delete st;
 	}
-
-	dummy();
+	MyStruct* st1 = new MyStruct();
+	MyStruct* st2 = new MyStruct();
+	MyStruct* st3 = new MyStruct();
+	MyStruct* st4 = new MyStruct();
+	Leak();
 	CollectGarbage();
 }
 

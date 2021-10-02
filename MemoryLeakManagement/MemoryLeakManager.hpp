@@ -1,5 +1,9 @@
 #pragma once
-#include <windows.h>
+#ifndef MEMORY_LEAK_MANAGER
+#define MEMORY_LEAK_MANAGER
+
+#include <new>
+#include <cstdlib>
 
 struct Element
 {
@@ -11,12 +15,10 @@ struct Element
 
 Element* s_allocatedPointersHead = nullptr;
 Element* s_allocatedPointersTail = nullptr;
-
-int counter = 0;
+void* stackTop;
 
 void* operator new(size_t size)
 {
-	counter++;
 	if (size == 0)
         ++size;
 	void* ptr = std::malloc(size);
@@ -46,7 +48,6 @@ void* operator new(size_t size)
 
 void operator delete(void* p)
 {
-	counter--;
 	auto ite1 = s_allocatedPointersHead;
 	auto ite2 = s_allocatedPointersHead;
 	if (ite1 != nullptr && ite1->m_ptr == p)
@@ -85,62 +86,47 @@ void ResetAllocatedPointerMap()
 	}
 }
 
-Element* DetectMemoryLeak()
+void DetectMemoryLeak()
 {
 	ResetAllocatedPointerMap();
-	Element* resultsHead = nullptr;
-	Element* resultsTail = nullptr;
-	void* stackBottom;
-	void* stackTop;
-	void** teb = (void**)NtCurrentTeb();
-	stackTop = teb[1];
+	int dummy = 0;
+	void* stackBottom = &dummy;
 
 	auto ite = s_allocatedPointersHead;
 	while (ite != nullptr)
 	{
-		stackBottom = teb[2];
-		while (stackBottom < stackTop)
+		auto stackScanner = stackBottom;
+		while (stackScanner < stackTop)
 		{
-			if (*static_cast<int*>(stackBottom) == (int)ite->m_ptr)
+			if (*static_cast<long*>(stackScanner) == (long)ite->m_ptr)
 			{
 				ite->m_isGarbage = false;
 				break;
 			}
 
-			stackBottom = static_cast<char*>(stackBottom) + sizeof(stackBottom);
+			stackScanner = static_cast<char*>(stackScanner) + sizeof(stackScanner);
 		}
 		ite = ite->next;
 	}
-
-	ite = s_allocatedPointersHead;
-	while (ite != nullptr)
-	{
-		if (ite->m_isGarbage)
-		{
-			if (resultsHead == nullptr)
-			{
-				resultsHead = ite;
-				resultsTail = ite;
-			}
-			else
-			{
-				resultsTail->next = ite;
-				resultsTail = ite;
-			}
-
-		}
-		ite = ite->next;
-	}
-	return resultsHead;
 }
 
 void CollectGarbage()
 {
-	auto garbageList = DetectMemoryLeak();
-	while (garbageList != nullptr)
+	DetectMemoryLeak();
+	auto ite = s_allocatedPointersHead;
+	while (ite != nullptr)
 	{
-		auto next = garbageList->next;		
-		delete[] garbageList->m_ptr;
-		garbageList = next;
+		if (ite->m_isGarbage)
+		{
+			auto next = ite->next;
+			delete[] ite->m_ptr;
+			ite = next;
+		}
+		else
+		{
+			ite = ite->next;
+		}
 	}
 }
+
+#endif
