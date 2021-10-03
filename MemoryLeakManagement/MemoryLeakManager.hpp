@@ -13,14 +13,14 @@ struct Element
 	Element() { m_ptr = nullptr; next = nullptr; m_isGarbage = true; }
 };
 
-Element* s_allocatedPointersHead = nullptr;
-Element* s_allocatedPointersTail = nullptr;
-void* stackTop;
+Element* g_allocatedPointersHead = nullptr;
+Element* g_allocatedPointersTail = nullptr;
+void* g_stackTop;
 
 int GetAllocatedPointersCount()
 {
 	int counter = 0;
-	auto ite = s_allocatedPointersHead;
+	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
 	{
 		counter++;
@@ -41,15 +41,15 @@ void* operator new(size_t size)
 			ptrElement->m_isGarbage = false;
 			ptrElement->m_ptr = ptr;
 			ptrElement->next = nullptr;
-			if (s_allocatedPointersHead == nullptr)
+			if (g_allocatedPointersHead == nullptr)
 			{
-				s_allocatedPointersHead = ptrElement;
-				s_allocatedPointersTail = ptrElement;
+				g_allocatedPointersHead = ptrElement;
+				g_allocatedPointersTail = ptrElement;
 			}
 			else
 			{
-				s_allocatedPointersTail->next = ptrElement;
-				s_allocatedPointersTail = ptrElement;
+				g_allocatedPointersTail->next = ptrElement;
+				g_allocatedPointersTail = ptrElement;
 			}
 			return ptr;
 		}
@@ -59,15 +59,15 @@ void* operator new(size_t size)
 
 void operator delete(void* p)
 {
-	auto ite1 = s_allocatedPointersHead;
-	auto ite2 = s_allocatedPointersHead;
+	auto ite1 = g_allocatedPointersHead;
+	auto ite2 = g_allocatedPointersHead;
 	if (ite1 != nullptr && ite1->m_ptr == p)
 	{
-		if (s_allocatedPointersHead == s_allocatedPointersTail)
+		if (g_allocatedPointersHead == g_allocatedPointersTail)
 		{
-			s_allocatedPointersTail = s_allocatedPointersTail->next;
+			g_allocatedPointersTail = g_allocatedPointersTail->next;
 		}
-		s_allocatedPointersHead = s_allocatedPointersHead->next;
+		g_allocatedPointersHead = g_allocatedPointersHead->next;
 		free(ite1);
 		ite1 = nullptr;
 		ite2 = nullptr;
@@ -80,8 +80,8 @@ void operator delete(void* p)
 			if (ite1 != nullptr && ite1->m_ptr == p)
 			{
 				ite2->next = ite1->next;
-				if (s_allocatedPointersTail == ite1)
-					s_allocatedPointersTail = ite2;
+				if (g_allocatedPointersTail == ite1)
+					g_allocatedPointersTail = ite2;
 				free(ite1);
 				ite1 = nullptr;
 				break;
@@ -96,7 +96,7 @@ void operator delete(void* p)
 
 void ResetAllocatedPointers()
 {
-	auto ite = s_allocatedPointersHead;
+	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
 	{
 		ite->m_isGarbage = true;
@@ -110,11 +110,11 @@ void DetectMemoryLeak()
 	int dummy = 0;
 	void* stackBottom = &dummy;
 
-	auto ite = s_allocatedPointersHead;
+	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
 	{
 		auto stackScanner = stackBottom;
-		while (stackScanner < stackTop)
+		while (stackScanner < g_stackTop)
 		{
 			if (*static_cast<long*>(stackScanner) == (long)ite->m_ptr)
 			{
@@ -131,7 +131,7 @@ void DetectMemoryLeak()
 void CollectGarbage()
 {
 	DetectMemoryLeak();
-	auto ite = s_allocatedPointersHead;
+	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
 	{
 		if (ite->m_isGarbage)

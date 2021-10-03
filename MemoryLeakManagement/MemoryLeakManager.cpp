@@ -16,7 +16,7 @@ void Leak1000()
 int main()
 {
 	int dummy = 0;
-	stackTop = &dummy;
+	g_stackTop = &dummy;
 
 	/*
 	* For all compilers:
@@ -44,8 +44,8 @@ int main()
 	* except of the one of the last iteration
 	*/
 	assert(2 == GetAllocatedPointersCount());
-	delete s_allocatedPointersHead->m_ptr;
-	delete s_allocatedPointersHead->m_ptr;
+	delete g_allocatedPointersHead->m_ptr;
+	delete g_allocatedPointersHead->m_ptr;
 #endif // WIN32
 
 #ifndef _WIN32
