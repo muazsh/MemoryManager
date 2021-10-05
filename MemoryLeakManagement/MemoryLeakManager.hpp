@@ -9,8 +9,10 @@ struct Element
 {
 	void* m_ptr; 
 	bool m_isGarbage;
+	char const* m_file; 
+	int m_line;
 	Element* next;
-	Element() { m_ptr = nullptr; next = nullptr; m_isGarbage = true; }
+	Element() { m_ptr = nullptr; next = nullptr; m_isGarbage = true; m_file = nullptr; m_line = 0; }
 };
 
 Element* g_allocatedPointersHead = nullptr;
@@ -28,7 +30,7 @@ int GetAllocatedPointersCount()
 	}
 	return counter;
 }
-void* operator new(size_t size)
+void* operator new(size_t size, char const* file, int line)
 {
 	if (size == 0)
         ++size;
@@ -40,6 +42,8 @@ void* operator new(size_t size)
 		{
 			ptrElement->m_isGarbage = false;
 			ptrElement->m_ptr = ptr;
+			ptrElement->m_file = file;
+			ptrElement->m_line = line;
 			ptrElement->next = nullptr;
 			if (g_allocatedPointersHead == nullptr)
 			{
@@ -56,6 +60,8 @@ void* operator new(size_t size)
 	}
     throw std::bad_alloc{}; 
 }
+
+#define new new(__FILE__, __LINE__)
 
 void operator delete(void* p)
 {
@@ -123,6 +129,16 @@ void DetectMemoryLeak()
 			}
 
 			stackScanner = static_cast<char*>(stackScanner) + sizeof(stackScanner);
+		}
+		ite = ite->next;
+	}
+
+	ite = g_allocatedPointersHead;
+	while (ite != nullptr)
+	{
+		if (ite->m_isGarbage)
+		{
+			printf("Memory leak detected in file %s at line %d\n", ite->m_file, ite->m_line);
 		}
 		ite = ite->next;
 	}
