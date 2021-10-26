@@ -37,16 +37,18 @@ int main()
 	assert(200 == GetAllocatedPointersCount());
 	CollectGarbage();
 
-#ifdef _WIN32
+#ifdef _WIN64
+	assert(0 == GetAllocatedPointersCount());
+#elif _WIN32
 	/*
-	* For MSVC compiler:
+	* For MSVC x86 compiler:
 	* When garbage took place in the current function in loops, all garbage are collected by CollectGarbage
 	* except of the one of the last iteration
 	*/
 	assert(2 == GetAllocatedPointersCount());
 	delete g_allocatedPointersHead->m_ptr;
 	delete g_allocatedPointersHead->m_ptr;
-#endif // WIN32
+#endif // _WIN64
 
 #ifndef _WIN32
 	/*
@@ -64,10 +66,11 @@ int main()
 	}
 	assert(4 == GetAllocatedPointersCount());
 	CollectGarbage();
-
-#ifdef _WIN32
+#ifdef _WIN64
+	assert(0 == GetAllocatedPointersCount());
+#elif _WIN32
 	/*
-	* For MSVC compiler:
+	* For MSVC x86 compiler:
 	* When garbage took place in the current function in a block, CollectGarbage detects no leak.
 	*/
 	assert(4 == GetAllocatedPointersCount());
