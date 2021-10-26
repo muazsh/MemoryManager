@@ -19,3 +19,4 @@ CollectGarbage();
 # Limitations:
 - Since threads have their own stacks, this tool should be used carefully in case of multi-threaded applications, otherwise it would not be accurate.
 - The tool assumes a continuous stack memory space, which is not of C++ standard.  
+- Currently the tool detects memory leak in case of direkt pointers leak (pointers which have refences in the stack), indirect pointers (those which have no refernce in the stack) will be detected as leaks even if they dont leak (false positive).  
