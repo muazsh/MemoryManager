@@ -74,7 +74,7 @@ int main()
 	* When garbage took place in the current function in a block, CollectGarbage detects no leak.
 	*/
 	assert(4 == GetAllocatedPointersCount());
-#endif // _WIN32
+#endif // _WIN64
 
 #ifndef _WIN32
 	/*
