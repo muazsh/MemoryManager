@@ -11,8 +11,9 @@ struct Element
 	bool m_isGarbage;
 	char const* m_file; 
 	int m_line;
+	size_t m_size;
 	Element* next;
-	Element() { m_ptr = nullptr; next = nullptr; m_isGarbage = true; m_file = nullptr; m_line = 0; }
+	Element() { m_ptr = nullptr; next = nullptr; m_isGarbage = true; m_file = nullptr; m_line = 0; m_size = 0; }
 };
 
 Element* g_allocatedPointersHead = nullptr;
@@ -44,6 +45,7 @@ void* operator new(size_t size, char const* file, int line)
 			ptrElement->m_ptr = ptr;
 			ptrElement->m_file = file;
 			ptrElement->m_line = line;
+			ptrElement->m_size = size;
 			ptrElement->next = nullptr;
 			if (g_allocatedPointersHead == nullptr)
 			{
@@ -122,13 +124,52 @@ void DetectMemoryLeak()
 		auto stackScanner = stackBottom;
 		while (stackScanner < g_stackTop)
 		{
-			if (*static_cast<long*>(stackScanner) == (long)ite->m_ptr)
+			if (*static_cast<int*>(stackScanner) == (int)ite->m_ptr)
 			{
 				ite->m_isGarbage = false;
 				break;
 			}
 
 			stackScanner = static_cast<char*>(stackScanner) + sizeof(stackScanner);
+		}
+		ite = ite->next;
+	}
+
+	ite = g_allocatedPointersHead;
+	while (ite != nullptr)
+	{
+		bool iteFixed = false;
+		if (ite->m_isGarbage)
+		{
+			auto ite2 = g_allocatedPointersHead;
+			while (ite2 != nullptr)
+			{
+				if (!ite2->m_isGarbage)
+				{
+					int i = 0;
+					int* varScanner = (int*)ite2->m_ptr;
+					while (i < ite2->m_size)
+					{
+						if ((int)*(varScanner + i) == (int)ite->m_ptr)
+						{
+							ite->m_isGarbage = false;
+							break;
+						}
+						i++;
+					}
+					if (!ite->m_isGarbage)
+					{
+						iteFixed = true;
+						break;
+					}
+				}
+				ite2 = ite2->next;
+			}
+		}
+		if (iteFixed)
+		{
+			ite = g_allocatedPointersHead;
+			continue;
 		}
 		ite = ite->next;
 	}
@@ -160,6 +201,14 @@ void CollectGarbage()
 		{
 			ite = ite->next;
 		}
+	}
+}
+
+void ResetAllocationList()
+{
+	while (g_allocatedPointersHead != nullptr)
+	{
+		delete g_allocatedPointersHead->m_ptr;
 	}
 }
 

@@ -12,6 +12,21 @@ void Leak1000()
 		auto st = new MyStruct();
 }
 
+struct MyStructWithPtr
+{
+	double x; double* y;
+	MyStructWithPtr()
+	{
+		x = 10;
+		y = new double(5);
+	}
+};
+
+
+void LeakMyStructWithPtr()
+{
+	auto ptr = new MyStructWithPtr();
+}
 
 int main()
 {
@@ -46,8 +61,7 @@ int main()
 	* except of the one of the last iteration
 	*/
 	assert(2 == GetAllocatedPointersCount());
-	delete g_allocatedPointersHead->m_ptr;
-	delete g_allocatedPointersHead->m_ptr;
+	ResetAllocationList();
 #endif // _WIN64
 
 #ifndef _WIN32
@@ -74,6 +88,8 @@ int main()
 	* When garbage took place in the current function in a block, CollectGarbage detects no leak.
 	*/
 	assert(4 == GetAllocatedPointersCount());
+	CollectGarbage();
+	ResetAllocationList();
 #endif // _WIN64
 
 #ifndef _WIN32
@@ -81,5 +97,17 @@ int main()
 	* For GCC and Clang CollectGarbage detects this kind of leaks.
 	*/
 	assert(0 == GetAllocatedPointersCount());
+#endif // !_WIN32
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Indirect pointers.
+	LeakMyStructWithPtr(); // 2 leaks in here;
+	MyStructWithPtr myStructWithPtr; // no leak despite allocation in default ctor.
+	auto ptrMyStructWithPtr = new MyStructWithPtr(); // no leaks despite inner pointer is not in the stack rather in the heap.
+	assert(5 == GetAllocatedPointersCount());
+#ifdef _WIN64
+#elif _WIN32
+	CollectGarbage();
+	assert(3 == GetAllocatedPointersCount());
 #endif // !_WIN32
 }
