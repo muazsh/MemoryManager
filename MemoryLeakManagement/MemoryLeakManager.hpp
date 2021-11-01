@@ -33,8 +33,6 @@ int GetAllocatedPointersCount()
 }
 void* operator new(size_t size, char const* file, int line)
 {
-	if (size == 0)
-        ++size;
 	void* ptr = std::malloc(size);
     if (ptr)
 	{
