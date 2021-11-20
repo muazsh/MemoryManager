@@ -1,6 +1,6 @@
 # Memory Leak Manager
 
-This is a simple tool that enables detecting memory leak, the idea is that memory leak occurs when there are some allocations in the heap and there are no references in the stack point to those allocatations.
+This is a simple tool that enables detecting memory leak, the idea is that the memory leak takes place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations.
 
 This tool overloads `new` and `delete` operators to keep track of what is allocated and what is freed.
 
