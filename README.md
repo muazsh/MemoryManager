@@ -1,6 +1,6 @@
 # Memory Leak Manager
 
-This is a simple tool that enables detecting memory leak, the idea is that the memory leak takes place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations.
+This is a simple tool that enables detecting and cleaning memory leak, the idea is that the memory leak takes place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations.
 
 This tool overloads `new` and `delete` operators to keep track of what is allocated and what is freed.
 
@@ -21,4 +21,4 @@ CollectGarbage();
 
 # Limitations:
 - Since threads have their own stacks, this tool should be used carefully in case of multi-threaded applications, otherwise it would not be accurate.
-- The tool assumes a continuous stack memory space, which is not of C++ standard.
+- The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
