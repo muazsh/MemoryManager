@@ -18,7 +18,7 @@ g_stackTop = &dummy; // g_stackTop is a global variable declared in MemeoryLeakM
 ```c++
 CollectGarbage();
 ```
-- `DetectMemoryLeak` function detects and prints out the memory leak places in code without calling `delete` on those leaks.
+- `DetectMemoryLeak` function detects and prints out memory leak places in the code without calling `delete` on those leaks, so it can be used just for profiling.
 
 # Limitations:
 - Since threads have their own stacks, this tool should be used carefully in case of multi-threaded applications, otherwise it would not be accurate.
