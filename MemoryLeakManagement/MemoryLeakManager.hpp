@@ -12,12 +12,20 @@ struct Element
 	char const* m_file; 
 	int m_line;
 	size_t m_size;
-	Element* next;
-	Element() { m_ptr = nullptr; next = nullptr; m_isGarbage = true; m_file = nullptr; m_line = 0; m_size = 0; }
+	Element* m_next;
+	Element() :  m_ptr(nullptr), 
+		m_next(nullptr), 
+		m_isGarbage(true), 
+		m_file(nullptr), 
+		m_line(0), 
+		m_size(0){}
 };
 
 Element* g_allocatedPointersHead = nullptr;
 Element* g_allocatedPointersTail = nullptr;
+Element* g_deletedPointersHead = nullptr;
+Element* g_deletedPointersTail = nullptr;
+
 void* g_stackTop;
 
 int GetAllocatedPointersCount()
@@ -27,7 +35,7 @@ int GetAllocatedPointersCount()
 	while (ite != nullptr)
 	{
 		counter++;
-		ite = ite->next;
+		ite = ite->m_next;
 	}
 	return counter;
 }
@@ -44,7 +52,7 @@ void* operator new(size_t size, char const* file, int line)
 			ptrElement->m_file = file;
 			ptrElement->m_line = line;
 			ptrElement->m_size = size;
-			ptrElement->next = nullptr;
+			ptrElement->m_next = nullptr;
 			if (g_allocatedPointersHead == nullptr)
 			{
 				g_allocatedPointersHead = ptrElement;
@@ -52,7 +60,7 @@ void* operator new(size_t size, char const* file, int line)
 			}
 			else
 			{
-				g_allocatedPointersTail->next = ptrElement;
+				g_allocatedPointersTail->m_next = ptrElement;
 				g_allocatedPointersTail = ptrElement;
 			}
 			return ptr;
@@ -71,31 +79,41 @@ void operator delete(void* p)
 	{
 		if (g_allocatedPointersHead == g_allocatedPointersTail)
 		{
-			g_allocatedPointersTail = g_allocatedPointersTail->next;
+			g_allocatedPointersTail = g_allocatedPointersTail->m_next;
 		}
-		g_allocatedPointersHead = g_allocatedPointersHead->next;
-		free(ite1);
-		ite1 = nullptr;
+		g_allocatedPointersHead = g_allocatedPointersHead->m_next;
 		ite2 = nullptr;
 	}
 	else
 	{
 		while (ite1 != nullptr)
 		{
-			ite1 = ite1->next;
+			ite1 = ite1->m_next;
 			if (ite1 != nullptr && ite1->m_ptr == p)
 			{
-				ite2->next = ite1->next;
+				ite2->m_next = ite1->m_next;
 				if (g_allocatedPointersTail == ite1)
 					g_allocatedPointersTail = ite2;
-				free(ite1);
-				ite1 = nullptr;
 				break;
 			}
-			ite2 = ite2->next;
-
+			ite2 = ite2->m_next;
 		}
 	}
+
+	if (ite1 != nullptr) { // move deleted pointer element from allocated to deleted list.
+		ite1->m_next = nullptr;
+		if (g_deletedPointersHead == nullptr) {
+			g_deletedPointersHead = g_deletedPointersTail = ite1;
+		}
+		else if (g_deletedPointersHead->m_next == nullptr) {
+			g_deletedPointersHead->m_next = g_deletedPointersTail = ite1;
+		}
+		else {
+			g_deletedPointersTail->m_next = ite1;
+			g_deletedPointersTail = ite1;
+		}
+	}
+
 	free(p);
 	p = nullptr;
 }
@@ -106,7 +124,51 @@ void ResetAllocatedPointers()
 	while (ite != nullptr)
 	{
 		ite->m_isGarbage = true;
-		ite = ite->next;
+		ite = ite->m_next;
+	}
+}
+
+void DetectDanglingPointers() {
+	int dummy = 0;
+	dummy++;
+	void* stackBottom = &dummy;
+	auto stackScanner = stackBottom;
+	while (stackScanner < g_stackTop)
+	{
+		auto ite = g_deletedPointersHead;
+		while (ite != nullptr)
+		{
+			if (*static_cast<int*>(stackScanner) == (int)ite->m_ptr)
+			{
+				printf("Potential dangling pointer of the pointer allocated in file %s at line %d\n", ite->m_file, ite->m_line);
+				break;
+			}
+			ite = ite->m_next;
+		}
+
+		stackScanner = static_cast<char*>(stackScanner) + 1;
+	}
+
+	auto ite = g_deletedPointersHead;
+	while (ite != nullptr)
+	{
+		auto ite2 = g_allocatedPointersHead;
+		while (ite2 != nullptr)
+		{
+			int i = 0;
+			int* allocatedHeapScanner = (int*)ite2->m_ptr;
+			while (i < ite2->m_size)
+			{
+				if ((int)*(allocatedHeapScanner + i) == (int)ite->m_ptr)
+				{
+					printf("Potential dangling pointer of the pointer allocated in file %s at line %d\n", ite->m_file, ite->m_line);
+					break;
+				}
+				i++;
+			}
+			ite2 = ite2->m_next;
+		}
+		ite = ite->m_next;
 	}
 }
 
@@ -115,25 +177,24 @@ void DetectMemoryLeak()
 	ResetAllocatedPointers();
 	int dummy = 0;
 	void* stackBottom = &dummy;
-
-	auto ite = g_allocatedPointersHead;
-	while (ite != nullptr)
+	auto stackScanner = stackBottom;
+	while (stackScanner < g_stackTop)
 	{
-		auto stackScanner = stackBottom;
-		while (stackScanner < g_stackTop)
+		auto ite = g_allocatedPointersHead;
+		while (ite != nullptr)
 		{
 			if (*static_cast<int*>(stackScanner) == (int)ite->m_ptr)
 			{
-				ite->m_isGarbage = false;
+				ite->m_isGarbage = false; // pointer is reachable.
 				break;
 			}
-
-			stackScanner = static_cast<char*>(stackScanner) + sizeof(stackScanner);
+			ite = ite->m_next;
 		}
-		ite = ite->next;
+
+		stackScanner = static_cast<char*>(stackScanner) + sizeof(stackScanner);
 	}
 
-	ite = g_allocatedPointersHead;
+	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
 	{
 		bool iteFixed = false;
@@ -145,12 +206,12 @@ void DetectMemoryLeak()
 				if (!ite2->m_isGarbage)
 				{
 					int i = 0;
-					int* varScanner = (int*)ite2->m_ptr;
+					int* allocatedHeapScanner = (int*)ite2->m_ptr;
 					while (i < ite2->m_size)
 					{
-						if ((int)*(varScanner + i) == (int)ite->m_ptr)
+						if ((int)*(allocatedHeapScanner + i) == (int)ite->m_ptr)
 						{
-							ite->m_isGarbage = false;
+							ite->m_isGarbage = false; // pointer is reachable. 
 							break;
 						}
 						i++;
@@ -161,7 +222,7 @@ void DetectMemoryLeak()
 						break;
 					}
 				}
-				ite2 = ite2->next;
+				ite2 = ite2->m_next;
 			}
 		}
 		if (iteFixed)
@@ -169,7 +230,7 @@ void DetectMemoryLeak()
 			ite = g_allocatedPointersHead;
 			continue;
 		}
-		ite = ite->next;
+		ite = ite->m_next;
 	}
 
 	ite = g_allocatedPointersHead;
@@ -177,9 +238,9 @@ void DetectMemoryLeak()
 	{
 		if (ite->m_isGarbage)
 		{
-			printf("Memory leak detected in file %s at line %d\n", ite->m_file, ite->m_line);
+			printf("Memory leak detected of pointer allocated in file %s at line %d\n", ite->m_file, ite->m_line);
 		}
-		ite = ite->next;
+		ite = ite->m_next;
 	}
 }
 
@@ -191,13 +252,13 @@ void CollectGarbage()
 	{
 		if (ite->m_isGarbage)
 		{
-			auto next = ite->next;
+			auto next = ite->m_next;
 			delete[] ite->m_ptr;
 			ite = next;
 		}
 		else
 		{
-			ite = ite->next;
+			ite = ite->m_next;
 		}
 	}
 }

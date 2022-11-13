@@ -28,11 +28,27 @@ void LeakMyStructWithPtr()
 	auto ptr = new MyStructWithPtr();
 }
 
-int main()
-{
-	int dummy = 0;
-	g_stackTop = &dummy;
+int* GetDenaglingPtr() {
+	auto ptr = new int(1);
+	auto ptr1 = ptr;
+	delete ptr;
+	return ptr1;
+}
 
+MyStructWithPtr* GetDeepDanglingPtr() {
+	auto ptr = new MyStructWithPtr();
+	delete ptr->y;
+	auto doublePtr = new double(10);
+	ptr->y = doublePtr;
+	delete doublePtr;
+	return ptr;
+}
+void DanglingPointersDetection() {
+	auto danglingPtr = GetDenaglingPtr();
+	auto deepDanglingPtr = GetDeepDanglingPtr();
+	DetectDanglingPointers();
+}
+void MemoryLeakDetection() {
 	/*
 	* For all compilers:
 	* When garbage took place in a called function, all garbage are collected by CollectGarbage.
@@ -110,4 +126,13 @@ int main()
 	CollectGarbage();
 	assert(3 == GetAllocatedPointersCount());
 #endif // !_WIN32
+}
+
+int main() {
+	int dummy = 0;
+	dummy++;
+	g_stackTop = &dummy;
+
+	MemoryLeakDetection();
+	DanglingPointersDetection();
 }
