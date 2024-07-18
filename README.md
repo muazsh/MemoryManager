@@ -1,6 +1,6 @@
-# Memory Leak Manager
+# Memory Manager
 
-This is a simple tool that enables detecting and cleaning memory leaks, the idea is that memory leaks take place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations.
+This is a simple tool that enables detecting and cleaning memory leaks and detecting dangling pointers, the idea is that memory leaks take place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations, and the dangling pointer is a pointer which points to some already freed allocation.
 
 This tool overloads `new` and `delete` operators to keep track of what is allocated and what is freed.
 
@@ -12,13 +12,18 @@ The tool can distinguish between leaks and indirect pointers (those pointers whi
 - First of all when the program begins or when you still think no leak has been occured the stack top address should be obtained like:
 ```c++
 int dummy = 0;
+dummy++; // preventing optimizing away.
 g_stackTop = &dummy; // g_stackTop is a global variable declared in MemeoryLeakManager.hpp
 ```
 - Somewhere in the program where you think memory leak took place call:
 ```c++
 CollectGarbage();
 ```
-- `DetectMemoryLeak` function detects and prints out memory leak places in the code without calling `delete` on those leaks, so it can be used for profiling for example.
+`DetectMemoryLeak` function detects and prints out memory leak places in the code without calling `delete` on those leaks, so it can be used for profiling for example.
+- Somewhere in the program where you think dangling pointer took place call:
+```c++
+DetectDanglingPointers();
+```
 
 # Limitations:
 - Since threads have their own stacks, this tool should be used carefully in case of multi-threaded applications, otherwise it would not be accurate.
