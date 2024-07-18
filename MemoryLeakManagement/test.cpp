@@ -2,7 +2,7 @@
 //
 #include <iostream>
 #include <assert.h>
-#include "MemoryLeakManager.hpp"
+#include "MemoryManager.h"
 
 struct MyStruct { double x; double y; };
 
@@ -135,4 +135,5 @@ int main() {
 
 	MemoryLeakDetection();
 	DanglingPointersDetection();
+
 }

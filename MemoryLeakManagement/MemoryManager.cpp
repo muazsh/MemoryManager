@@ -1,24 +1,21 @@
-#pragma once
-#ifndef MEMORY_LEAK_MANAGER
-#define MEMORY_LEAK_MANAGER
-
-#include <new>
+#include "MemoryManager.h"
 #include <cstdlib>
+#include <cstdio>
 
 struct Element
 {
-	void* m_ptr; 
+	void* m_ptr;
 	bool m_isGarbage;
-	char const* m_file; 
+	char const* m_file;
 	int m_line;
 	size_t m_size;
 	Element* m_next;
-	Element() :  m_ptr(nullptr), 
-		m_next(nullptr), 
-		m_isGarbage(true), 
-		m_file(nullptr), 
-		m_line(0), 
-		m_size(0){}
+	Element() : m_ptr(nullptr),
+		m_next(nullptr),
+		m_isGarbage(true),
+		m_file(nullptr),
+		m_line(0),
+		m_size(0) {}
 };
 
 Element* g_allocatedPointersHead = nullptr;
@@ -26,7 +23,7 @@ Element* g_allocatedPointersTail = nullptr;
 Element* g_deletedPointersHead = nullptr;
 Element* g_deletedPointersTail = nullptr;
 
-void* g_stackTop;
+void* g_stackTop = nullptr;
 
 int GetAllocatedPointersCount()
 {
@@ -39,12 +36,13 @@ int GetAllocatedPointersCount()
 	}
 	return counter;
 }
-void* operator new(size_t size, char const* file, int line)
+
+void* MyNew(size_t size, char const* file, int line)
 {
 	void* ptr = std::malloc(size);
-    if (ptr)
+	if (ptr)
 	{
-		Element* ptrElement = (Element*)std::malloc(sizeof( Element));
+		Element* ptrElement = (Element*)std::malloc(sizeof(Element));
 		if (ptrElement)
 		{
 			ptrElement->m_isGarbage = false;
@@ -66,7 +64,20 @@ void* operator new(size_t size, char const* file, int line)
 			return ptr;
 		}
 	}
-    throw std::bad_alloc{}; 
+	throw std::bad_alloc{};
+}
+
+
+#undef new
+
+void* operator new(size_t size, char const* file, int line)
+{
+	return MyNew(size, file, line);
+}
+
+void* operator new[](size_t size, char const* file, int line) 
+{
+	return MyNew(size, file, line);
 }
 
 #define new new(__FILE__, __LINE__)
@@ -116,6 +127,11 @@ void operator delete(void* p)
 
 	free(p);
 	p = nullptr;
+}
+
+void operator delete[](void* p)
+{
+	delete(p);
 }
 
 void ResetAllocatedPointers()
@@ -253,7 +269,7 @@ void CollectGarbage()
 		if (ite->m_isGarbage)
 		{
 			auto next = ite->m_next;
-			delete[] ite->m_ptr;
+			delete ite->m_ptr;
 			ite = next;
 		}
 		else
@@ -270,5 +286,3 @@ void ResetAllocationList()
 		delete g_allocatedPointersHead->m_ptr;
 	}
 }
-
-#endif
