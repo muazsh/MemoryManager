@@ -19,11 +19,11 @@ void* operator new[](size_t size, char const* file, int line);
 void operator delete(void* p);
 void operator delete[](void* p);
 
-int GetAllocatedPointersCount();
+unsigned int GetAllocatedPointersCount();
 void ResetAllocatedPointers();
 void DetectDanglingPointers();
 void DetectMemoryLeak();
-void CollectGarbage();
+unsigned int CollectGarbage();
 void ResetAllocationList();
 
 #endif

@@ -25,7 +25,7 @@ Element* g_deletedPointersTail = nullptr;
 
 void* g_stackTop = nullptr;
 
-int GetAllocatedPointersCount()
+unsigned int GetAllocatedPointersCount()
 {
 	int counter = 0;
 	auto ite = g_allocatedPointersHead;
@@ -207,7 +207,7 @@ void DetectMemoryLeak()
 			ite = ite->m_next;
 		}
 
-		stackScanner = static_cast<char*>(stackScanner) + sizeof(stackScanner);
+		stackScanner = static_cast<char*>(stackScanner) + 1;
 	}
 
 	auto ite = g_allocatedPointersHead;
@@ -260,14 +260,16 @@ void DetectMemoryLeak()
 	}
 }
 
-void CollectGarbage()
+unsigned int CollectGarbage()
 {
 	DetectMemoryLeak();
+	unsigned int count = 0;
 	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
 	{
 		if (ite->m_isGarbage)
 		{
+			count++;
 			auto next = ite->m_next;
 			delete ite->m_ptr;
 			ite = next;
@@ -277,6 +279,7 @@ void CollectGarbage()
 			ite = ite->m_next;
 		}
 	}
+	return count;
 }
 
 void ResetAllocationList()
