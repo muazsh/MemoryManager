@@ -4,7 +4,7 @@ This is a simple tool that enables detecting and cleaning memory leaks and detec
 
 This tool overloads `new` and `delete` operators to keep track of what is allocated and what is freed. 
 
-Once memory leaks detection is triggered the stack gets scanned from bottom to top for each **allocated** pointer looking for a reference to it whether in the stack itself or in a heap pointed by other pointer in the stack. Analog when dangling pointers detection is triggered the stack gets scanned from bottom to top for each **deleted** pointer looking for a reference to it whether in the stack itself or in a heap pointed by other pointer in the stack.  
+Once memory leaks detection is triggered the stack gets scanned from bottom to top for each **allocated** pointer looking for a reference to it whether in the stack itself or in a heap reachable by other pointer in the stack directly or indirectly. Analog when dangling pointers detection is triggered the stack gets scanned from bottom to top for each **deleted** pointer looking for a reference to it whether in the stack itself or in a heap reachable by other pointer in the stack directly or indirectly.  
 
 The tool can distinguish between leaks and indirect pointers (those pointers which have no references in the stack because they are pointers inside some other pointers).
 
@@ -27,7 +27,4 @@ DetectDanglingPointers();
 
 # Limitations:
 - The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
-- Due to C++ runtime implementation where last stack frame which should have been removed is stand still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack, see the examples in main.cpp.
-- The tool provides 2 levels of leaks:
-  - Leaks have references in the stack.
-  - Leaks have no references in the stack but ones in heaps which have pointers in the stack point to them.
+- Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack, see the examples in main.cpp.
