@@ -154,7 +154,7 @@ void DetectDanglingPointers() {
 		auto ite = g_deletedPointersHead;
 		while (ite != nullptr)
 		{
-			if (*static_cast<int*>(stackScanner) == (int)ite->m_ptr)
+			if (*static_cast<int*>(stackScanner) == (int)reinterpret_cast<std::intptr_t>(ite->m_ptr))
 			{
 				printf("Potential dangling pointer of the pointer allocated in file %s at line %d\n", ite->m_file, ite->m_line);
 				break;
@@ -175,7 +175,7 @@ void DetectDanglingPointers() {
 			int* allocatedHeapScanner = (int*)ite2->m_ptr;
 			while (i < ite2->m_size)
 			{
-				if ((int)*(allocatedHeapScanner + i) == (int)ite->m_ptr)
+				if ((int)*(allocatedHeapScanner + i) == (int)reinterpret_cast<std::intptr_t>(ite->m_ptr))
 				{
 					printf("Potential dangling pointer of the pointer allocated in file %s at line %d\n", ite->m_file, ite->m_line);
 					break;
@@ -199,7 +199,7 @@ void DetectMemoryLeak()
 		auto ite = g_allocatedPointersHead;
 		while (ite != nullptr)
 		{
-			if (*static_cast<int*>(stackScanner) == (int)ite->m_ptr)
+			if (*static_cast<int*>(stackScanner) == (int)reinterpret_cast<std::intptr_t>(ite->m_ptr))
 			{
 				ite->m_isGarbage = false; // pointer is reachable.
 				break;
@@ -225,7 +225,7 @@ void DetectMemoryLeak()
 					int* allocatedHeapScanner = (int*)ite2->m_ptr;
 					while (i < ite2->m_size)
 					{
-						if ((int)*(allocatedHeapScanner + i) == (int)ite->m_ptr)
+						if ((int)*(allocatedHeapScanner + i) == (int)reinterpret_cast<std::intptr_t>(ite->m_ptr))
 						{
 							ite->m_isGarbage = false; // pointer is reachable. 
 							break;
