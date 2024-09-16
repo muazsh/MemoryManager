@@ -126,7 +126,6 @@ void operator delete(void* p)
 	}
 
 	free(p);
-	p = nullptr;
 }
 
 void operator delete[](void* p)
