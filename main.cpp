@@ -5,7 +5,6 @@
 #include <thread>
 #include <memory>
 #include <iostream>
-#include <format>
 #include <string>
 
 struct MyStruct { double x; double y; };
