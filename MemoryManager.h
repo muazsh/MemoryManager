@@ -12,8 +12,8 @@ extern Element* g_deletedPointersTail;
 									   
 extern void* g_stackTop; 
 
-void* operator new(size_t size, char const* file, int line);
-void* operator new[](size_t size, char const* file, int line);
+void* operator new(std::size_t size, char const* file, int line);
+void* operator new[](std::size_t size, char const* file, int line);
 #define new new(__FILE__, __LINE__)
 
 void operator delete(void* p);

@@ -8,7 +8,7 @@ struct Element
 	bool m_isGarbage;
 	char const* m_file;
 	int m_line;
-	size_t m_size;
+	std::size_t m_size;
 	Element* m_next;
 	Element() : m_ptr(nullptr),
 		m_next(nullptr),
@@ -37,7 +37,7 @@ unsigned int GetAllocatedPointersCount()
 	return counter;
 }
 
-void* MyNew(size_t size, char const* file, int line)
+void* MyNew(std::size_t size, char const* file, int line)
 {
 	void* ptr = std::malloc(size);
 	if (ptr)
@@ -70,12 +70,12 @@ void* MyNew(size_t size, char const* file, int line)
 
 #undef new
 
-void* operator new(size_t size, char const* file, int line)
+void* operator new(std::size_t size, char const* file, int line)
 {
 	return MyNew(size, file, line);
 }
 
-void* operator new[](size_t size, char const* file, int line) 
+void* operator new[](std::size_t size, char const* file, int line) 
 {
 	return MyNew(size, file, line);
 }
