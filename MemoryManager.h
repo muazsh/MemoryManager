@@ -3,6 +3,7 @@
 #define MEMORY_MANAGER
 
 #include <new>
+#include <cmath>
 
 struct Element;
 extern Element* g_allocatedPointersHead;
@@ -20,9 +21,8 @@ void* operator new[](std::size_t size);
 
 void* MyNew(std::size_t size);
 
-// This macro got from https://stackoverflow.com/questions/619467/macro-to-replace-c-operator-new
 // TODO: this macro has issues in a multi-threaded environment 
-#define new 1 && (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && 0 ? NULL : new
+#define new abs(1) && (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && false ? nullptr : new
 
 void operator delete(void* p);
 void operator delete[](void* p);
