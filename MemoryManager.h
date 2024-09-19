@@ -22,7 +22,7 @@ void* MyNew(std::size_t size);
 
 // This macro got from https://stackoverflow.com/questions/619467/macro-to-replace-c-operator-new
 // TODO: this macro has issues in a multi-threaded environment 
-#define new true && (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && false ? nullptr : new
+#define new 1 && (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && 0 ? NULL : new
 
 void operator delete(void* p);
 void operator delete[](void* p);
