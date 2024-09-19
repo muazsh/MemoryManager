@@ -12,9 +12,17 @@ extern Element* g_deletedPointersTail;
 									   
 extern void* g_stackTop; 
 
-void* operator new(std::size_t size, char const* file, int line);
-void* operator new[](std::size_t size, char const* file, int line);
-#define new new(__FILE__, __LINE__)
+extern const char* g_newOperatorCallingFile;
+extern int g_newOperatorCallingLine;
+
+void* operator new(std::size_t size);
+void* operator new[](std::size_t size);
+
+void* MyNew(std::size_t size);
+
+// This macro got from https://stackoverflow.com/questions/619467/macro-to-replace-c-operator-new
+// TODO: this macro has issues in a multi-threaded environment 
+#define new (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && false ? nullptr : new
 
 void operator delete(void* p);
 void operator delete[](void* p);

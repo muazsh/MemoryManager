@@ -25,6 +25,9 @@ Element* g_deletedPointersTail = nullptr;
 
 void* g_stackTop = nullptr;
 
+const char* g_newOperatorCallingFile = nullptr;
+int g_newOperatorCallingLine = 0;
+
 unsigned int GetAllocatedPointersCount()
 {
 	int counter = 0;
@@ -37,7 +40,7 @@ unsigned int GetAllocatedPointersCount()
 	return counter;
 }
 
-void* MyNew(std::size_t size, char const* file, int line)
+void* MyNew(std::size_t size)
 {
 	void* ptr = std::malloc(size);
 	if (ptr)
@@ -47,8 +50,8 @@ void* MyNew(std::size_t size, char const* file, int line)
 		{
 			ptrElement->m_isGarbage = false;
 			ptrElement->m_ptr = ptr;
-			ptrElement->m_file = file;
-			ptrElement->m_line = line;
+			ptrElement->m_file = g_newOperatorCallingFile;
+			ptrElement->m_line = g_newOperatorCallingLine;
 			ptrElement->m_size = size;
 			ptrElement->m_next = nullptr;
 			if (g_allocatedPointersHead == nullptr)
@@ -70,17 +73,19 @@ void* MyNew(std::size_t size, char const* file, int line)
 
 #undef new
 
-void* operator new(std::size_t size, char const* file, int line)
+void* operator new(std::size_t size)
 {
-	return MyNew(size, file, line);
+	return MyNew(size);
 }
 
-void* operator new[](std::size_t size, char const* file, int line) 
+void* operator new[](std::size_t size)
 {
-	return MyNew(size, file, line);
+	return MyNew(size);
 }
 
-#define new new(__FILE__, __LINE__)
+// This macro got from https://stackoverflow.com/questions/619467/macro-to-replace-c-operator-new
+// TODO: this macro has issues in a multi-threaded environment 
+#define new (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && false ? nullptr : new
 
 void operator delete(void* p)
 {
