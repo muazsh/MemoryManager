@@ -3,7 +3,6 @@
 #define MEMORY_MANAGER
 
 #include <new>
-#include <cmath>
 
 struct Element;
 extern Element* g_allocatedPointersHead;
@@ -19,13 +18,13 @@ extern int g_newOperatorCallingLine;
 void* operator new(std::size_t size);
 void* operator new[](std::size_t size);
 
-void* operator new(std::size_t size, bool flag, const char* file, int line);
-void* operator new[](std::size_t size, bool flag, const char* file, int line);
-
 void* MyNew(std::size_t size);
 
+#ifdef WIN32
+void* operator new(std::size_t size, bool flag, const char* file, int line);
 // TODO: this macro has issues in a multi-threaded environment 
 #define new new(false, g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) int() != nullptr? nullptr : new
+#endif
 
 void operator delete(void* p);
 void operator delete[](void* p);
