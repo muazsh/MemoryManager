@@ -133,9 +133,6 @@ int main() {
 	dummy++;
 	g_stackTop = &dummy;
 
-	unsigned char buf[sizeof(MyStruct)];
-	MyStruct* pInt = new (buf) MyStruct{ 5,5 };
-	
 	DetectNoLeaks();
 	DetectLeaksInLoop();
 	DetectLeaksInBlock();

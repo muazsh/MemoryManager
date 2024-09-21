@@ -84,9 +84,12 @@ void* operator new[](std::size_t size)
 	return MyNew(size);
 }
 
-// This macro got from https://stackoverflow.com/questions/619467/macro-to-replace-c-operator-new
+void* operator new(std::size_t size, bool flag, const char* file, int line) {
+	return nullptr;
+}
+	
 // TODO: this macro has issues in a multi-threaded environment 
-#define new 1 && (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && 0 ? NULL : new
+#define new new(false, g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) int() !=nullptr ? nullptr : new
 
 void operator delete(void* p)
 {

@@ -19,10 +19,13 @@ extern int g_newOperatorCallingLine;
 void* operator new(std::size_t size);
 void* operator new[](std::size_t size);
 
+void* operator new(std::size_t size, bool flag, const char* file, int line);
+void* operator new[](std::size_t size, bool flag, const char* file, int line);
+
 void* MyNew(std::size_t size);
 
 // TODO: this macro has issues in a multi-threaded environment 
-#define new abs(1) && (g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) && false ? nullptr : new
+#define new new(false, g_newOperatorCallingFile=__FILE__,g_newOperatorCallingLine=__LINE__) int() != nullptr? nullptr : new
 
 void operator delete(void* p);
 void operator delete[](void* p);
