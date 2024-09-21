@@ -76,6 +76,6 @@ jobs:
           if [ "${{ matrix.os }}" == 'ubuntu-latest' ]; then
             ./MemoryManager
           else
-            ./Release/MemoryManager.exe
+            ./Debug/MemoryManager.exe
           fi
       shell: bash
