@@ -1,3 +1,5 @@
+[![CMake on multiple platforms](https://github.com/muazsh/MemoryManager/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/muazsh/MemoryManager/actions/workflows/cmake-multi-platform.yml)
+
 # Memory Manager
 
 This is a simple tool that enables detecting and cleaning memory leaks and detecting dangling pointers, the idea is that memory leaks take place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations, and the dangling pointer is a pointer which points to some already freed allocation.
