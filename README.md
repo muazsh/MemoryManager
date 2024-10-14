@@ -1,3 +1,5 @@
+[![CMake on multiple platforms](https://github.com/muazsh/MemoryManager/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/muazsh/MemoryManager/actions/workflows/cmake-multi-platform.yml)
+
 # Memory Manager
 
 This is a simple tool that enables detecting and cleaning memory leaks and detecting dangling pointers, the idea is that memory leaks take place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations, and the dangling pointer is a pointer which points to some already freed allocation.
@@ -28,3 +30,4 @@ DetectDanglingPointers();
 # Limitations:
 - The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
 - Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack, see the examples in main.cpp.
+- In GCC the macro `# define _GLIBCXX_OPERATOR_NEW ::operator new` makes it almost impossible to define a macro that replaces both replacement and placement new operators, so the tool detects leaks/dangling pointers but could not identify the file and line of the leaking/dangling code, MSVC is fine.
