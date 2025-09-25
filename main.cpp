@@ -29,7 +29,7 @@ void DetectNoLeaks() {
 	ResetAllocatedPointers();
 	MakeNoLeaks();
 	auto count = CollectGarbage();
-	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are collected" << "\033[0m" << std::endl << std::endl;
+	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are detected" << "\033[0m" << std::endl << std::endl;
 }
 void Leak1000()
 {
@@ -69,7 +69,7 @@ MyStructWithPtr* GetDeepDanglingPtr() {
 	return ptr;
 }
 void DanglingPointersDetection() {
-	ResetAllocatedPointers();
+	ResetAllocationList();
 	auto danglingPtr = GetDenaglingPtr();
 	auto deepDanglingPtr = GetDeepDanglingPtr();
 	DetectDanglingPointers();
@@ -79,18 +79,18 @@ void Detect1000LeaksInCalledFunction() {
 	ResetAllocationList();
 	Leak1000();
 	auto count = CollectGarbage();
-	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are collected" << "\033[0m" << std::endl << std::endl;
+	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are detected" << "\033[0m" << std::endl << std::endl;
 }
 
 void DetectLeaksInLoop() {
 	ResetAllocationList();
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		auto st1 = new MyStruct();
 		auto st2 = new MyStruct();
 	}
 	auto count = CollectGarbage();
-	std::cout << "\033[37;41m"  << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are collected" << "\033[0m" << std::endl << std::endl;
+	std::cout << "\033[37;41m"  << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are detected" << "\033[0m" << std::endl << std::endl;
 }
 
 void DetectLeaksInBlock() {
@@ -103,7 +103,7 @@ void DetectLeaksInBlock() {
 	}
 
 	auto count = CollectGarbage();
-	std::cout << "\033[37;41m" << "In function " + std::string(__FUNCTION__) + " " + std::to_string(count) + " leaks are collected" << "\033[0m" << std::endl << std::endl;
+	std::cout << "\033[37;41m" << "In function " + std::string(__FUNCTION__) + " " + std::to_string(count) + " leaks are detected" << "\033[0m" << std::endl << std::endl;
 }
 
 void DetectIndirectLeaks() {
@@ -112,7 +112,7 @@ void DetectIndirectLeaks() {
 	MyStructWithPtr myStructWithPtr; // no leak despite allocation in default ctor.
 	auto ptrMyStructWithPtr = new MyStructWithPtr(); // no leaks despite inner pointer is not in the stack rather in the heap.
 	auto count = CollectGarbage();
-	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are collected" << "\033[0m" << std::endl << std::endl;
+	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are detected" << "\033[0m" << std::endl << std::endl;
 }
 
 void DetectLeaksInThread() {
@@ -124,21 +124,17 @@ void DetectLeaksInThread() {
 	}
 
 	auto count = CollectGarbage();
-	std::cout << "\033[37; 41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are collected" << "\033[0m" << std::endl << std::endl;
+	std::cout << "\033[37; 41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are detected" << "\033[0m" << std::endl << std::endl;
 
 }
 
 int main() {
-	int dummy = 0;
-	dummy++;
-	g_stackTop = &dummy;
-
 	DetectNoLeaks();
 	DetectLeaksInLoop();
 	DetectLeaksInBlock();
 	Detect1000LeaksInCalledFunction();
 	DetectIndirectLeaks();
 	DetectLeaksInThread();
-
+	
 	DanglingPointersDetection();
 }

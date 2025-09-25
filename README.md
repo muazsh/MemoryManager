@@ -8,26 +8,21 @@ This tool overloads `new` and `delete` operators to keep track of what is alloca
 
 Once memory leaks detection is triggered the stack gets scanned from bottom to top for each **allocated** pointer looking for a reference to it whether in the stack itself or in a heap reachable by other pointer in the stack directly or indirectly. Analog when dangling pointers detection is triggered the stack gets scanned from bottom to top for each **deleted** pointer looking for a reference to it whether in the stack itself or in a heap reachable by other pointer in the stack directly or indirectly.  
 
-The tool can distinguish between leaks and indirect pointers (those pointers which have no references in the stack because they are pointers inside some other pointers).
+The tool can distinguish between leaks and indirect pointers (those pointers which have no references in the stack because they are pointers inside some other pointers in the heap).
 
 # Usage:
-- First of all when the program begins or when you still think no leak has been occured the stack top address should be obtained like:
-```c++
-int dummy = 0;
-dummy++; // preventing optimizing away.
-g_stackTop = &dummy; // g_stackTop is a global variable declared in MemeoryLeakManager.hpp
-```
-- Somewhere in the program where you think memory leak took place, in main thread after making sure worker threads are idle call:
+
+- Somewhere in the program where you think memory leak took place call:
 ```c++
 CollectGarbage();
 ```
 `DetectMemoryLeak` function detects and prints out memory leak places in the code without calling `delete` on those leaks, so it can be used for profiling for example.
-- Somewhere in the program where you think dangling pointer took place, in main thread after making sure worker threads are idle call call:
+
+- Somewhere in the program where you think dangling pointer took place call:
 ```c++
 DetectDanglingPointers();
 ```
 
 # Limitations:
 - The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
-- Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack, see the examples in main.cpp.
-- In GCC the macro `# define _GLIBCXX_OPERATOR_NEW ::operator new` makes it almost impossible to define a macro that replaces both replacement and placement new operators, so the tool detects leaks/dangling pointers but could not identify the file and line of the leaking/dangling code, MSVC is fine.
+- Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack, same for dangling pointer where some reported dangling pointers might still be in some non-reachable stack frame, see the examples in main.cpp.
