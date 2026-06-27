@@ -74,6 +74,31 @@ static std::vector<StackBoundary> GetThreadStackBoundaries() {
 	return stacks;
 }
 
+bool IsAssignedToGlobalOrStatic(const void* p)
+{
+	uint8_t* baseAddress = reinterpret_cast<uint8_t*>(GetModuleHandle(NULL));
+	if (!baseAddress) return false;
+
+	// Parse PE Headers
+	PIMAGE_DOS_HEADER dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(baseAddress);
+	PIMAGE_NT_HEADERS ntHeaders = reinterpret_cast<PIMAGE_NT_HEADERS>(baseAddress + dosHeader->e_lfanew);
+	PIMAGE_SECTION_HEADER sectionHeader = IMAGE_FIRST_SECTION(ntHeaders);
+
+	for (int i = 0; i < ntHeaders->FileHeader.NumberOfSections; i++) {
+		if (strncmp(reinterpret_cast<const char*>(sectionHeader[i].Name), ".data", 5) == 0) {
+			uint8_t* startAttr = baseAddress + sectionHeader[i].VirtualAddress;
+			uint8_t* endAttr = startAttr + sectionHeader[i].Misc.VirtualSize;
+			for (uint8_t* ptr = startAttr; ptr < endAttr; ptr+=1) {
+				if (*reinterpret_cast<const uint8_t**>(ptr) == reinterpret_cast<const uint8_t*>(p)) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+	return false;
+}
+
 #else
 // ------------------- Linux -------------------
 #include <fstream>
@@ -81,6 +106,7 @@ static std::vector<StackBoundary> GetThreadStackBoundaries() {
 #include <string>
 #include <dirent.h>
 #include <unistd.h>
+#include <cstdint>
 
 static std::vector<StackBoundary> GetThreadStackBoundaries() {
 	std::vector<StackBoundary> stacks;
@@ -116,6 +142,36 @@ static std::vector<StackBoundary> GetThreadStackBoundaries() {
 	closedir(dir);
 	return stacks;
 }
+
+extern "C" {
+	extern char __data_start;
+	extern char _edata;
+	extern char __bss_start;
+	extern char _end;
+}
+
+bool IsAssignedToGlobalOrStatic(const void* p)
+{
+	for (uint8_t* ptr = reinterpret_cast<uint8_t*>(&__data_start); 
+		ptr < reinterpret_cast<uint8_t*>(&_edata); ptr++)
+	{
+		if (*reinterpret_cast<const uint8_t**>(ptr) == reinterpret_cast<const uint8_t*>(p)) 
+		{
+			return true;
+		}
+	}
+
+	for (uint8_t* ptr = reinterpret_cast<uint8_t*>(&__bss_start);
+		ptr < reinterpret_cast<uint8_t*>(&_end); ptr++)
+	{
+		if (*reinterpret_cast<const uint8_t**>(ptr) == reinterpret_cast<const uint8_t*>(p)) 
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 #endif
 
 #ifdef _WIN32
@@ -369,7 +425,7 @@ static bool IsPatternFound(const void* data, size_t dataSize, const void* elemen
 		return false;
 	}
 
-	for (size_t i = 0; i <= dataSize - patternSize; i++) {
+	for (size_t i = 0; i <= dataSize - patternSize; i+=4) {
 		if (std::memcmp(reinterpret_cast<const uint8_t*>(data) + i, element, patternSize) == 0) {
 			return true;
 		}
@@ -378,8 +434,17 @@ static bool IsPatternFound(const void* data, size_t dataSize, const void* elemen
 }
 
 void DetectDanglingPointers() {
+	auto iter = g_deletedPointersHead;
+	while (iter != nullptr)
+	{
+		if (IsAssignedToGlobalOrStatic(iter->m_ptr))
+		{
+			printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
+			printf("\033[0m\n %s", iter->m_file);
+		}
+		iter = iter->m_next;
+	}
 	auto stacks = GetThreadStackBoundaries();
-
 	//scan all threads stacks.
 	for (auto const& stack : stacks) {
 		auto ite = g_deletedPointersHead;
@@ -417,7 +482,14 @@ void DetectDanglingPointers() {
 void DetectMemoryLeak()
 {
 	ResetAllocatedPointers();
-
+	auto iter = g_allocatedPointersHead;
+	while (iter != nullptr)
+	{
+		if (IsAssignedToGlobalOrStatic(iter->m_ptr)) {
+			iter->m_isGarbage = false; // pointer is reachable.
+		}
+		iter = iter->m_next;
+	}
 	auto stacks = GetThreadStackBoundaries();
 	//scan all threads stacks.
 	for (auto const& stack : stacks) {
@@ -430,7 +502,7 @@ void DetectMemoryLeak()
 			stackSize = stack.m_end - stack.m_start;
 			stackBottom = reinterpret_cast<void*>(stack.m_start);
 		}
-		while (ite != nullptr)
+		while (ite != nullptr && ite->m_isGarbage)
 		{
 			if (IsPatternFound(stackBottom, stackSize, &ite->m_ptr, sizeof(void*))) {
 				ite->m_isGarbage = false; // pointer is reachable.

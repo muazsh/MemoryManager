@@ -24,5 +24,6 @@ void DetectDanglingPointers();
 void DetectMemoryLeak();
 unsigned CollectGarbage();
 void ResetAllocationList();
+bool IsAssignedToGlobalOrStatic(const void* p);
 
 #endif

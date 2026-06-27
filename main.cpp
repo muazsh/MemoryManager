@@ -128,6 +128,34 @@ void DetectLeaksInThread() {
 
 }
 
+double* globalDanglingPtr = nullptr;
+
+void GlobalDanglingPointer() {
+	ResetAllocationList();
+	auto* pt = new double(10);
+	globalDanglingPtr = pt;
+	delete pt;
+	DetectDanglingPointers();
+}
+
+void AssignStaticPtr() {
+	static char* charPtr1 = new char('b');
+	static char* charPtr2 = new char('m');
+	static char* charPtr3 = new char('w');
+}
+void AssignStaticPtr0() {
+	AssignStaticPtr();
+}
+void StaticDoesNotLeak() {
+	ResetAllocationList();
+	{
+		AssignStaticPtr0();
+	}
+	DetectMemoryLeak();
+}
+
+
+
 int main() {
 	DetectNoLeaks();
 	DetectLeaksInLoop();
@@ -135,6 +163,7 @@ int main() {
 	Detect1000LeaksInCalledFunction();
 	DetectIndirectLeaks();
 	DetectLeaksInThread();
-	
 	DanglingPointersDetection();
+	GlobalDanglingPointer();
+	StaticDoesNotLeak();
 }

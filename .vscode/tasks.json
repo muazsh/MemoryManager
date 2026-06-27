@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build all",
+      "type": "process",
+      "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat",
+      "args": [
+        "&&",
+        "cl.exe",
+        "/EHsc",
+        "/Zi",                // ✅ generate debug symbols
+        "main.cpp",
+        "MemoryManager.cpp",
+        "/Fe:manager.exe",
+        "/link",
+        "/DEBUG"              // ✅ embed PDB debug info
+      ],
+      "options": {
+        "shell": {
+          "executable": "cmd.exe",
+          "args": ["/c"]
+        }
+      },
+      "problemMatcher": ["$msCompile"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}
