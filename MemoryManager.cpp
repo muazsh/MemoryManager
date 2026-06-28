@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
-#include <vector>
 
 struct StackBoundary {
 	unsigned long m_tid;
@@ -34,8 +33,8 @@ typedef NTSTATUS(NTAPI* NtQueryInformationThread_t)(
 	PULONG ReturnLength
 	);
 
-static std::vector<StackBoundary> GetThreadStackBoundaries() {
-	std::vector<StackBoundary> stacks;
+static LinkedList<StackBoundary> GetThreadStackBoundaries() {
+	LinkedList<StackBoundary> stacks;
 
 	auto pNtQueryInformationThread = reinterpret_cast<NtQueryInformationThread_t>(
 		GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationThread")
@@ -61,7 +60,7 @@ static std::vector<StackBoundary> GetThreadStackBoundaries() {
 				if (pNtQueryInformationThread(hThread, 0 /* ThreadBasicInformation */,
 					&tbi, sizeof(tbi), nullptr) == 0) {
 					NT_TIB* tib = reinterpret_cast<NT_TIB*>(tbi.TebBaseAddress);
-					stacks.push_back({ te.th32ThreadID,
+					stacks.push_front({ te.th32ThreadID,
 									  reinterpret_cast<uintptr_t>(tib->StackLimit),
 									  reinterpret_cast<uintptr_t>(tib->StackBase) });
 				}
@@ -108,8 +107,8 @@ bool IsAssignedToGlobalOrStatic(const void* p)
 #include <unistd.h>
 #include <cstdint>
 
-static std::vector<StackBoundary> GetThreadStackBoundaries() {
-	std::vector<StackBoundary> stacks;
+static LinkedList<StackBoundary> GetThreadStackBoundaries() {
+	LinkedList<StackBoundary> stacks;
 	pid_t pid = getpid();
 	std::string taskDir = "/proc/" + std::to_string(pid) + "/task";
 	DIR* dir = opendir(taskDir.c_str());
@@ -134,7 +133,7 @@ static std::vector<StackBoundary> GetThreadStackBoundaries() {
 				if (dash != std::string::npos) {
 					uintptr_t start = std::stoull(addr.substr(0, dash), nullptr, 16);
 					uintptr_t end = std::stoull(addr.substr(dash + 1), nullptr, 16);
-					stacks.push_back({ (unsigned long)std::stoul(tidStr), start, end });
+					stacks.push_front({ (unsigned long)std::stoul(tidStr), start, end });
 				}
 			}
 		}
@@ -422,7 +421,7 @@ static bool IsPatternFound(const void* data, size_t dataSize, const void* elemen
 		return false;
 	}
 
-	for (size_t i = 0; i <= dataSize - patternSize; i+=4) {
+	for (size_t i = 0; i <= dataSize - patternSize; i+=1) {
 		if (std::memcmp(reinterpret_cast<const uint8_t*>(data) + i, element, patternSize) == 0) {
 			return true;
 		}
@@ -443,12 +442,12 @@ void DetectDanglingPointers() {
 	}
 	auto stacks = GetThreadStackBoundaries();
 	//scan all threads stacks.
-	for (auto const& stack : stacks) {
+	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
 		auto ite = g_deletedPointersHead;
-		auto stackSize = stack.m_end - stack.m_start;
+		auto stackSize = stack->data.m_end - stack->data.m_start;
 		while (ite != nullptr)
 		{
-			if (IsPatternFound(reinterpret_cast<void*>(stack.m_start), stackSize, &ite->m_ptr, sizeof(void*)))
+			if (IsPatternFound(reinterpret_cast<void*>(stack->data.m_start), stackSize, &ite->m_ptr, sizeof(void*)))
 			{
 				printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
 				printf("\033[0m\n %s", ite->m_file);
@@ -489,15 +488,15 @@ void DetectMemoryLeak()
 	}
 	auto stacks = GetThreadStackBoundaries();
 	//scan all threads stacks.
-	for (auto const& stack : stacks) {
+	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
 		auto ite = g_allocatedPointersHead;
 		int dummy = 0;
 		dummy++;
 		void* stackBottom = &dummy;
-		auto stackSize = stack.m_end - reinterpret_cast<uintptr_t>(stackBottom);
+		auto stackSize = stack->data.m_end - reinterpret_cast<uintptr_t>(stackBottom);
 		if (stackSize > 40000) {
-			stackSize = stack.m_end - stack.m_start;
-			stackBottom = reinterpret_cast<void*>(stack.m_start);
+			stackSize = stack->data.m_end - stack->data.m_start;
+			stackBottom = reinterpret_cast<void*>(stack->data.m_start);
 		}
 		while (ite != nullptr && ite->m_isGarbage)
 		{

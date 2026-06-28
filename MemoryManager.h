@@ -26,4 +26,44 @@ unsigned CollectGarbage();
 void ResetAllocationList();
 bool IsAssignedToGlobalOrStatic(const void* p);
 
+
+template <typename T>
+class LinkedList {
+private:
+    struct Node {
+        T data;
+        Node* next;
+
+        Node(const T& value) : data(value), next(nullptr) {}
+    };
+
+public:
+    Node* head = nullptr;
+
+    LinkedList() = default;
+    LinkedList(const LinkedList&) = default;
+    LinkedList& operator=(const LinkedList&) = default;
+    LinkedList(LinkedList&&) = default;
+    LinkedList& operator=(LinkedList&&) = default;
+
+    void push_front(const T& value) {
+        Node* node = (Node*)std::malloc(sizeof(Node));
+        node->data = value;
+        node->next = head;
+        head = node;
+    }
+
+    ~LinkedList() {
+        Node* current = head;
+
+        while (current) {
+            Node* next = current->next;
+            free(current);
+            current = next;
+        }
+
+        head = nullptr;
+    }
+};
+
 #endif
