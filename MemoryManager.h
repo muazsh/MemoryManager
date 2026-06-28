@@ -3,6 +3,7 @@
 #define MEMORY_MANAGER
 
 #include <new>
+#include <mutex>
 
 struct Element;
 extern Element* g_allocatedPointersHead;
@@ -10,8 +11,7 @@ extern Element* g_allocatedPointersTail;
 extern Element* g_deletedPointersHead;
 extern Element* g_deletedPointersTail;
 
-extern const char* g_newOperatorCallingFile;
-extern int g_newOperatorCallingLine;
+extern std::mutex g_alloc_dealloc_mtx;
 
 void* operator new(std::size_t size);
 void* operator new[](std::size_t size);

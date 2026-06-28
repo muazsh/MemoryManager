@@ -282,14 +282,12 @@ struct Element
 	void* m_ptr;
 	bool m_isGarbage;
 	char const* m_file;
-	int m_line;
 	std::size_t m_size;
 	Element* m_next;
 	Element() : m_ptr(nullptr),
 		m_next(nullptr),
 		m_isGarbage(true),
 		m_file(nullptr),
-		m_line(0),
 		m_size(0) {}
 };
 
@@ -298,10 +296,7 @@ Element* g_allocatedPointersTail = nullptr;
 Element* g_deletedPointersHead = nullptr;
 Element* g_deletedPointersTail = nullptr;
 
-void* g_stackTop = nullptr;
-
-const char* g_newOperatorCallingFile = nullptr;
-int g_newOperatorCallingLine = 0;
+std::mutex g_alloc_dealloc_mtx;
 
 static unsigned GetAllocatedPointersCount()
 {
@@ -327,9 +322,9 @@ static void* MyNew(std::size_t size)
 			ptrElement->m_isGarbage = false;
 			ptrElement->m_ptr = ptr;
 			ptrElement->m_file = trace;
-			ptrElement->m_line = g_newOperatorCallingLine;
 			ptrElement->m_size = size;
 			ptrElement->m_next = nullptr;
+			g_alloc_dealloc_mtx.lock();
 			if (g_allocatedPointersHead == nullptr)
 			{
 				g_allocatedPointersHead = ptrElement;
@@ -340,6 +335,7 @@ static void* MyNew(std::size_t size)
 				g_allocatedPointersTail->m_next = ptrElement;
 				g_allocatedPointersTail = ptrElement;
 			}
+			g_alloc_dealloc_mtx.unlock();
 			return ptr;
 		}
 	}
@@ -361,6 +357,7 @@ void* operator new[](std::size_t size)
 
 void operator delete(void* p)
 {
+	g_alloc_dealloc_mtx.lock();
 	auto ite1 = g_allocatedPointersHead;
 	auto ite2 = g_allocatedPointersHead;
 	if (ite1 != nullptr && ite1->m_ptr == p)
@@ -401,7 +398,7 @@ void operator delete(void* p)
 			g_deletedPointersTail = ite1;
 		}
 	}
-
+	g_alloc_dealloc_mtx.unlock();
 	free(p);
 }
 
