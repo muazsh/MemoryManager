@@ -3,6 +3,7 @@
 #define MEMORY_MANAGER
 
 #include <new>
+#include <cstdlib>
 #include <mutex>
 
 struct Element;
