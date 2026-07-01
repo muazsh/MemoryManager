@@ -290,9 +290,7 @@ struct Element
 };
 
 Element* g_allocatedPointersHead = nullptr;
-Element* g_allocatedPointersTail = nullptr;
 Element* g_deletedPointersHead = nullptr;
-Element* g_deletedPointersTail = nullptr;
 
 std::mutex g_alloc_dealloc_mtx;
 
@@ -326,12 +324,11 @@ static void* MyNew(std::size_t size)
 			if (g_allocatedPointersHead == nullptr)
 			{
 				g_allocatedPointersHead = ptrElement;
-				g_allocatedPointersTail = ptrElement;
 			}
 			else
 			{
-				g_allocatedPointersTail->m_next = ptrElement;
-				g_allocatedPointersTail = ptrElement;
+				ptrElement->m_next = g_allocatedPointersHead;
+				g_allocatedPointersHead = ptrElement;
 			}
 			g_alloc_dealloc_mtx.unlock();
 			return ptr;
@@ -358,46 +355,36 @@ void operator delete(void* p)
 	g_alloc_dealloc_mtx.lock();
 	auto ite1 = g_allocatedPointersHead;
 	auto ite2 = g_allocatedPointersHead;
-	if (ite1 != nullptr && ite1->m_ptr == p)
+	if (ite1 && ite1->m_ptr == p)
 	{
-		if (g_allocatedPointersHead == g_allocatedPointersTail)
-		{
-			g_allocatedPointersTail = g_allocatedPointersTail->m_next;
-		}
 		g_allocatedPointersHead = g_allocatedPointersHead->m_next;
 	}
 	else
 	{
-		while (ite1 != nullptr)
+		while (ite1)
 		{
 			ite1 = ite1->m_next;
-			if (ite1 != nullptr && ite1->m_ptr == p)
+			if (ite1 && ite1->m_ptr == p)
 			{
 				ite2->m_next = ite1->m_next;
-				if (g_allocatedPointersTail == ite1) {
-					g_allocatedPointersTail = ite2;
-				}
 				break;
 			}
 			ite2 = ite2->m_next;
 		}
 	}
 
-	if (ite1 != nullptr) { // move deleted pointer element from allocated to deleted list.
+	if (ite1) { // move deleted pointer element from allocated to deleted list.
 		ite1->m_next = nullptr;
 		if (g_deletedPointersHead == nullptr) {
-			g_deletedPointersHead = g_deletedPointersTail = ite1;
-		}
-		else if (g_deletedPointersHead->m_next == nullptr) {
-			g_deletedPointersHead->m_next = g_deletedPointersTail = ite1;
+			g_deletedPointersHead = ite1;
 		}
 		else {
-			g_deletedPointersTail->m_next = ite1;
-			g_deletedPointersTail = ite1;
+			ite1->m_next = g_deletedPointersHead;
+			g_deletedPointersHead = ite1;
 		}
 	}
-	g_alloc_dealloc_mtx.unlock();
 	free(p);
+	g_alloc_dealloc_mtx.unlock();
 }
 
 void operator delete[](void* p)
@@ -428,15 +415,55 @@ static bool IsPatternFound(const void* data, size_t dataSize, const void* elemen
 	return false;
 }
 
+bool IsInAllocated(void* p) {
+	if (!p) {
+		return false;
+	}
+	Element* ptr = g_allocatedPointersHead;
+	while (ptr) {
+		if (ptr->m_ptr == p) {
+			return true;
+		}
+		ptr = ptr->m_next;
+	}
+	return false;
+}
+
+void RemoveElementFromDeletedList(Element* pPrev, Element* pCurr) {
+	if (!pCurr) {
+		return;
+	}
+	if (pPrev) {
+		pPrev->m_next = pCurr->m_next;
+		free((void*)pCurr->m_file);
+		free(pCurr);
+		return;
+	}
+	auto temp = g_deletedPointersHead;
+	g_deletedPointersHead = g_deletedPointersHead->m_next;
+	free((void*)temp->m_file);
+	free(temp);
+}
+
 void DetectDanglingPointers() {
+	g_alloc_dealloc_mtx.lock();
 	auto iter = g_deletedPointersHead;
+	Element prev;
 	while (iter != nullptr)
 	{
 		if (IsAssignedToGlobalOrStatic(iter->m_ptr))
 		{
-			printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-			printf("\033[0m\n %s", iter->m_file);
+			if (IsInAllocated(iter->m_ptr))
+			{
+				RemoveElementFromDeletedList(prev.m_next, iter);
+			}
+			else
+			{
+				printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
+				printf("\033[0m\n %s", iter->m_file);
+			}
 		}
+		prev.m_next = iter;
 		iter = iter->m_next;
 	}
 	auto stacks = GetThreadStackBoundaries();
@@ -444,38 +471,57 @@ void DetectDanglingPointers() {
 	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
 		auto ite = g_deletedPointersHead;
 		auto stackSize = stack->data.m_end - stack->data.m_start;
+		Element prev;
 		while (ite != nullptr)
 		{
-			if (IsPatternFound(reinterpret_cast<void*>(stack->data.m_start), stackSize, &ite->m_ptr, sizeof(void*)))
+			if (IsInAllocated(ite->m_ptr))
 			{
-				printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-				printf("\033[0m\n %s", ite->m_file);
+				RemoveElementFromDeletedList(prev.m_next, ite);
 			}
+			else {
+				if (IsPatternFound(reinterpret_cast<void*>(stack->data.m_start), stackSize, &ite->m_ptr, sizeof(void*)))
+				{
+					printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
+					printf("\033[0m\n %s", ite->m_file);
+				}
+			}
+			prev.m_next = ite;
 			ite = ite->m_next;
 		}
 	}
 
 	//scan reachable heap.
 	auto ite = g_deletedPointersHead;
+	prev.m_next = nullptr;
 	while (ite != nullptr)
 	{
-		auto ite2 = g_allocatedPointersHead;
-		while (ite2 != nullptr)
+		if (IsInAllocated(ite->m_ptr))
 		{
-
-			if (IsPatternFound(ite2->m_ptr, ite2->m_size, &ite->m_ptr, sizeof(void*)))
-			{
-				printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-				printf("\033[0m\n %s", ite->m_file);
-			}
-			ite2 = ite2->m_next;
+			RemoveElementFromDeletedList(prev.m_next, ite);
 		}
+		else {
+			auto ite2 = g_allocatedPointersHead;
+			while (ite2 != nullptr)
+			{
+
+				if (IsPatternFound(ite2->m_ptr, ite2->m_size, &ite->m_ptr, sizeof(void*)))
+				{
+					printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
+					printf("\033[0m\n %s", ite->m_file);
+				}
+
+				ite2 = ite2->m_next;
+			}
+		}
+		prev.m_next = ite;
 		ite = ite->m_next;
 	}
+	g_alloc_dealloc_mtx.unlock();
 }
 
 void DetectMemoryLeak()
 {
+	g_alloc_dealloc_mtx.lock();
 	ResetAllocatedPointers();
 	auto iter = g_allocatedPointersHead;
 	while (iter != nullptr)
@@ -547,6 +593,7 @@ void DetectMemoryLeak()
 		}
 		ite = ite->m_next;
 	}
+	g_alloc_dealloc_mtx.unlock();
 }
 
 unsigned CollectGarbage()
@@ -585,7 +632,6 @@ void ResetAllocationList()
 		free(temp);
 	}
 	g_allocatedPointersHead = nullptr;
-	g_allocatedPointersTail = nullptr;
 
 	ite = g_deletedPointersHead;
 	while (ite != nullptr)
@@ -598,5 +644,4 @@ void ResetAllocationList()
 		free(temp);
 	}
 	g_deletedPointersHead = nullptr;
-	g_deletedPointersTail = nullptr;
 }
