@@ -10,7 +10,7 @@ struct Element;
 extern Element* g_allocatedPointersHead;
 extern Element* g_deletedPointersHead;
 
-extern std::mutex g_alloc_dealloc_mtx;
+extern std::recursive_mutex g_alloc_dealloc_mtx;
 
 void* operator new(std::size_t size);
 void* operator new[](std::size_t size);

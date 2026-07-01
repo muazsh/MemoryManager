@@ -292,7 +292,7 @@ struct Element
 Element* g_allocatedPointersHead = nullptr;
 Element* g_deletedPointersHead = nullptr;
 
-std::mutex g_alloc_dealloc_mtx;
+std::recursive_mutex g_alloc_dealloc_mtx;
 
 static unsigned GetAllocatedPointersCount()
 {
