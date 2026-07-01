@@ -429,20 +429,21 @@ bool IsInAllocated(void* p) {
 	return false;
 }
 
-void RemoveElementFromDeletedList(Element* pPrev, Element* pCurr) {
+Element* RemoveElementFromDeletedList(Element* pPrev, Element* pCurr) {
 	if (!pCurr) {
-		return;
+		return nullptr;
 	}
 	if (pPrev) {
 		pPrev->m_next = pCurr->m_next;
 		free((void*)pCurr->m_file);
 		free(pCurr);
-		return;
+		return pPrev->m_next;
 	}
 	auto temp = g_deletedPointersHead;
 	g_deletedPointersHead = g_deletedPointersHead->m_next;
 	free((void*)temp->m_file);
 	free(temp);
+	return g_deletedPointersHead;
 }
 
 void DetectDanglingPointers() {
@@ -455,7 +456,8 @@ void DetectDanglingPointers() {
 		{
 			if (IsInAllocated(iter->m_ptr))
 			{
-				RemoveElementFromDeletedList(prev.m_next, iter);
+				iter = RemoveElementFromDeletedList(prev.m_next, iter);
+				continue;
 			}
 			else
 			{
@@ -476,7 +478,8 @@ void DetectDanglingPointers() {
 		{
 			if (IsInAllocated(ite->m_ptr))
 			{
-				RemoveElementFromDeletedList(prev.m_next, ite);
+				ite = RemoveElementFromDeletedList(prev.m_next, ite);
+				continue;
 			}
 			else {
 				if (IsPatternFound(reinterpret_cast<void*>(stack->data.m_start), stackSize, &ite->m_ptr, sizeof(void*)))
@@ -497,7 +500,8 @@ void DetectDanglingPointers() {
 	{
 		if (IsInAllocated(ite->m_ptr))
 		{
-			RemoveElementFromDeletedList(prev.m_next, ite);
+			ite = RemoveElementFromDeletedList(prev.m_next, ite);
+			continue;
 		}
 		else {
 			auto ite2 = g_allocatedPointersHead;
