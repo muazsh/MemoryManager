@@ -280,10 +280,10 @@ struct Element
 	std::size_t m_size;
 	Element* m_next;
 	Element() : m_ptr(nullptr),
-		m_next(nullptr),
 		m_isGarbage(true),
 		m_stackTrace(nullptr),
-		m_size(0) {}
+		m_size(0),
+		m_next(nullptr) {}
 };
 
 Element* g_allocatedPointersHead = nullptr;
