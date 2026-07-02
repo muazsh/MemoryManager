@@ -32,19 +32,18 @@ typedef NTSTATUS(NTAPI* NtQueryInformationThread_t)(
 	PULONG ReturnLength
 	);
 
-static LinkedList<StackBoundary> GetThreadStackBoundaries() {
-	LinkedList<StackBoundary> stacks;
+static void GetThreadStackBoundaries(LinkedList<StackBoundary>& pStacks) {
 
 	auto pNtQueryInformationThread = reinterpret_cast<NtQueryInformationThread_t>(
 		GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationThread")
 		);
 	if (!pNtQueryInformationThread) {
-		return stacks;
+		return;
 	}
 
 	DWORD pid = GetCurrentProcessId();
 	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-	if (snapshot == INVALID_HANDLE_VALUE) return stacks;
+	if (snapshot == INVALID_HANDLE_VALUE) return;
 
 	THREADENTRY32 te;
 	te.dwSize = sizeof(te);
@@ -59,7 +58,7 @@ static LinkedList<StackBoundary> GetThreadStackBoundaries() {
 				if (pNtQueryInformationThread(hThread, 0 /* ThreadBasicInformation */,
 					&tbi, sizeof(tbi), nullptr) == 0) {
 					NT_TIB* tib = reinterpret_cast<NT_TIB*>(tbi.TebBaseAddress);
-					stacks.push_front({ te.th32ThreadID,
+					pStacks.push_front({ te.th32ThreadID,
 									  reinterpret_cast<uintptr_t>(tib->StackLimit),
 									  reinterpret_cast<uintptr_t>(tib->StackBase) });
 				}
@@ -69,7 +68,7 @@ static LinkedList<StackBoundary> GetThreadStackBoundaries() {
 	}
 
 	CloseHandle(snapshot);
-	return stacks;
+	return;
 }
 
 bool IsAssignedToGlobalOrStatic(const void* p)
@@ -352,39 +351,41 @@ void* operator new[](std::size_t size)
 
 void operator delete(void* p)
 {
-	g_alloc_dealloc_mtx.lock();
-	auto ite1 = g_allocatedPointersHead;
-	auto ite2 = g_allocatedPointersHead;
-	if (ite1 && ite1->m_ptr == p)
-	{
-		g_allocatedPointersHead = g_allocatedPointersHead->m_next;
-	}
-	else
-	{
-		while (ite1)
+	if (p) {
+		g_alloc_dealloc_mtx.lock();
+		auto ite1 = g_allocatedPointersHead;
+		auto ite2 = g_allocatedPointersHead;
+		if (ite1 && ite1->m_ptr == p)
 		{
-			ite1 = ite1->m_next;
-			if (ite1 && ite1->m_ptr == p)
+			g_allocatedPointersHead = g_allocatedPointersHead->m_next;
+		}
+		else
+		{
+			while (ite1)
 			{
-				ite2->m_next = ite1->m_next;
-				break;
+				ite1 = ite1->m_next;
+				if (ite1 && ite1->m_ptr == p)
+				{
+					ite2->m_next = ite1->m_next;
+					break;
+				}
+				ite2 = ite2->m_next;
 			}
-			ite2 = ite2->m_next;
 		}
-	}
 
-	if (ite1) { // move deleted pointer element from allocated to deleted list.
-		ite1->m_next = nullptr;
-		if (g_deletedPointersHead == nullptr) {
-			g_deletedPointersHead = ite1;
+		if (ite1) { // move deleted pointer element from allocated to deleted list.
+			ite1->m_next = nullptr;
+			if (g_deletedPointersHead == nullptr) {
+				g_deletedPointersHead = ite1;
+			}
+			else {
+				ite1->m_next = g_deletedPointersHead;
+				g_deletedPointersHead = ite1;
+			}
 		}
-		else {
-			ite1->m_next = g_deletedPointersHead;
-			g_deletedPointersHead = ite1;
-		}
+		free(p);
+		g_alloc_dealloc_mtx.unlock();
 	}
-	free(p);
-	g_alloc_dealloc_mtx.unlock();
 }
 
 void operator delete[](void* p)
@@ -415,20 +416,6 @@ static bool IsPatternFound(const void* data, size_t dataSize, const void* elemen
 	return false;
 }
 
-bool IsInAllocated(void* p) {
-	if (!p) {
-		return false;
-	}
-	Element* ptr = g_allocatedPointersHead;
-	while (ptr) {
-		if (ptr->m_ptr == p) {
-			return true;
-		}
-		ptr = ptr->m_next;
-	}
-	return false;
-}
-
 Element* RemoveElementFromDeletedList(Element* pPrev, Element* pCurr) {
 	if (!pCurr) {
 		return nullptr;
@@ -447,6 +434,21 @@ Element* RemoveElementFromDeletedList(Element* pPrev, Element* pCurr) {
 }
 
 void DetectDanglingPointers() {
+	struct IsInAllocatedChecker {
+		static bool IsInAllocated(void* p) {
+			if (!p) {
+				return false;
+			}
+			Element* ptr = g_allocatedPointersHead;
+			while (ptr) {
+				if (ptr->m_ptr == p) {
+					return true;
+				}
+				ptr = ptr->m_next;
+			}
+			return false;
+		}
+	};
 	g_alloc_dealloc_mtx.lock();
 	auto iter = g_deletedPointersHead;
 	Element prev;
@@ -454,7 +456,7 @@ void DetectDanglingPointers() {
 	{
 		if (IsAssignedToGlobalOrStatic(iter->m_ptr))
 		{
-			if (IsInAllocated(iter->m_ptr))
+			if (IsInAllocatedChecker::IsInAllocated(iter->m_ptr))
 			{
 				iter = RemoveElementFromDeletedList(prev.m_next, iter);
 				continue;
@@ -468,7 +470,8 @@ void DetectDanglingPointers() {
 		prev.m_next = iter;
 		iter = iter->m_next;
 	}
-	auto stacks = GetThreadStackBoundaries();
+	LinkedList<StackBoundary> stacks;
+	GetThreadStackBoundaries(stacks);
 	//scan all threads stacks.
 	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
 		auto ite = g_deletedPointersHead;
@@ -476,7 +479,7 @@ void DetectDanglingPointers() {
 		Element prev;
 		while (ite != nullptr)
 		{
-			if (IsInAllocated(ite->m_ptr))
+			if (IsInAllocatedChecker::IsInAllocated(ite->m_ptr))
 			{
 				ite = RemoveElementFromDeletedList(prev.m_next, ite);
 				continue;
@@ -498,7 +501,7 @@ void DetectDanglingPointers() {
 	prev.m_next = nullptr;
 	while (ite != nullptr)
 	{
-		if (IsInAllocated(ite->m_ptr))
+		if (IsInAllocatedChecker::IsInAllocated(ite->m_ptr))
 		{
 			ite = RemoveElementFromDeletedList(prev.m_next, ite);
 			continue;
@@ -535,7 +538,8 @@ void DetectMemoryLeak()
 		}
 		iter = iter->m_next;
 	}
-	auto stacks = GetThreadStackBoundaries();
+	LinkedList<StackBoundary> stacks;
+	GetThreadStackBoundaries(stacks);
 	//scan all threads stacks.
 	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
 		auto ite = g_allocatedPointersHead;

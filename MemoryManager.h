@@ -40,10 +40,10 @@ public:
     Node* head = nullptr;
 
     LinkedList() = default;
-    LinkedList(const LinkedList&) = default;
-    LinkedList& operator=(const LinkedList&) = default;
-    LinkedList(LinkedList&&) = default;
-    LinkedList& operator=(LinkedList&&) = default;
+    LinkedList(const LinkedList&) = delete;
+    LinkedList& operator=(const LinkedList&) = delete;
+    LinkedList(LinkedList&&) noexcept = delete;
+    LinkedList& operator=(LinkedList&&) noexcept = delete;
 
     void push_front(const T& value) {
         void* mem = std::malloc(sizeof(Node));
