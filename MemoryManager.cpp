@@ -408,7 +408,7 @@ static bool IsPatternFound(const void* data, size_t dataSize, const void* elemen
 		return false;
 	}
 
-	for (size_t i = 0; i <= dataSize - patternSize; i+=1) {
+	for (size_t i = 0; i <= dataSize - patternSize; i+=4) {
 		if (std::memcmp(reinterpret_cast<const uint8_t*>(data) + i, element, patternSize) == 0) {
 			return true;
 		}
@@ -533,7 +533,7 @@ void DetectMemoryLeak()
 	auto iter = g_allocatedPointersHead;
 	while (iter != nullptr)
 	{
-		if (IsAssignedToGlobalOrStatic(iter->m_ptr)) {
+		if (iter->m_isGarbage && IsAssignedToGlobalOrStatic(iter->m_ptr)) {
 			iter->m_isGarbage = false; // pointer is reachable.
 		}
 		iter = iter->m_next;
@@ -551,9 +551,9 @@ void DetectMemoryLeak()
 			stackSize = stack->data.m_end - stack->data.m_start;
 			stackBottom = reinterpret_cast<void*>(stack->data.m_start);
 		}
-		while (ite != nullptr && ite->m_isGarbage)
+		while (ite)
 		{
-			if (IsPatternFound(stackBottom, stackSize, &ite->m_ptr, sizeof(void*))) {
+			if (ite->m_isGarbage && IsPatternFound(stackBottom, stackSize, &ite->m_ptr, sizeof(void*))) {
 				ite->m_isGarbage = false; // pointer is reachable.
 			}
 			ite = ite->m_next;
@@ -562,13 +562,13 @@ void DetectMemoryLeak()
 
 	//scan reachable heap.
 	auto ite = g_allocatedPointersHead;
-	while (ite != nullptr)
+	while (ite)
 	{
 		bool iteFixed = false;
 		if (ite->m_isGarbage)
 		{
 			auto ite2 = g_allocatedPointersHead;
-			while (ite2 != nullptr)
+			while (ite2)
 			{
 				if (!ite2->m_isGarbage)
 				{
@@ -592,7 +592,7 @@ void DetectMemoryLeak()
 	}
 
 	ite = g_allocatedPointersHead;
-	while (ite != nullptr)
+	while (ite)
 	{
 		if (ite->m_isGarbage)
 		{
@@ -609,7 +609,7 @@ unsigned CollectGarbage()
 	DetectMemoryLeak();
 	unsigned count = 0;
 	auto ite = g_allocatedPointersHead;
-	while (ite != nullptr)
+	while (ite)
 	{
 		if (ite->m_isGarbage)
 		{
@@ -642,7 +642,7 @@ void ResetAllocationList()
 	g_allocatedPointersHead = nullptr;
 
 	ite = g_deletedPointersHead;
-	while (ite != nullptr)
+	while (ite)
 	{
 		if (ite->m_file) {
 			free((void*)ite->m_file);
