@@ -105,12 +105,11 @@ bool IsAssignedToGlobalOrStatic(const void* p)
 #include <unistd.h>
 #include <cstdint>
 
-static LinkedList<StackBoundary> GetThreadStackBoundaries() {
-	LinkedList<StackBoundary> stacks;
+static void GetThreadStackBoundaries(LinkedList<StackBoundary>& pStacks) {
 	pid_t pid = getpid();
 	std::string taskDir = "/proc/" + std::to_string(pid) + "/task";
 	DIR* dir = opendir(taskDir.c_str());
-	if (!dir) return stacks;
+	if (!dir) return;
 
 	struct dirent* entry;
 	while ((entry = readdir(dir)) != nullptr) {
@@ -131,13 +130,13 @@ static LinkedList<StackBoundary> GetThreadStackBoundaries() {
 				if (dash != std::string::npos) {
 					uintptr_t start = std::stoull(addr.substr(0, dash), nullptr, 16);
 					uintptr_t end = std::stoull(addr.substr(dash + 1), nullptr, 16);
-					stacks.push_front({ (unsigned long)std::stoul(tidStr), start, end });
+					pStacks.push_front({ (unsigned long)std::stoul(tidStr), start, end });
 				}
 			}
 		}
 	}
 	closedir(dir);
-	return stacks;
+	return;
 }
 
 extern "C" {
