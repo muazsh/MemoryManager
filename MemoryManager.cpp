@@ -129,7 +129,7 @@ static void GetThreadStackBoundaries(LinkedList<StackBoundary>& pStacks) {
 				if (dash != std::string::npos) {
 					uintptr_t start = std::stoull(addr.substr(0, dash), nullptr, 16);
 					uintptr_t end = std::stoull(addr.substr(dash + 1), nullptr, 16);
-					pStacks.push_front({ (unsigned long)std::stoul(tidStr), start, end });
+					pStacks.push_front({ start, end });
 				}
 			}
 		}
