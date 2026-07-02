@@ -4,7 +4,6 @@
 #include <cstring>
 
 struct StackBoundary {
-	unsigned long m_tid;
 	uintptr_t m_start;
 	uintptr_t m_end;
 };
@@ -58,9 +57,9 @@ static void GetThreadStackBoundaries(LinkedList<StackBoundary>& pStacks) {
 				if (pNtQueryInformationThread(hThread, 0 /* ThreadBasicInformation */,
 					&tbi, sizeof(tbi), nullptr) == 0) {
 					NT_TIB* tib = reinterpret_cast<NT_TIB*>(tbi.TebBaseAddress);
-					pStacks.push_front({ te.th32ThreadID,
-									  reinterpret_cast<uintptr_t>(tib->StackLimit),
-									  reinterpret_cast<uintptr_t>(tib->StackBase) });
+					pStacks.push_front({
+						reinterpret_cast<uintptr_t>(tib->StackLimit),
+						reinterpret_cast<uintptr_t>(tib->StackBase) });
 				}
 				CloseHandle(hThread);
 			}
@@ -85,7 +84,7 @@ bool IsAssignedToGlobalOrStatic(const void* p)
 		if (strncmp(reinterpret_cast<const char*>(sectionHeader[i].Name), ".data", 5) == 0) {
 			uint8_t* startAttr = baseAddress + sectionHeader[i].VirtualAddress;
 			uint8_t* endAttr = startAttr + sectionHeader[i].Misc.VirtualSize;
-			for (uint8_t* ptr = startAttr; ptr < endAttr; ptr+=1) {
+			for (uint8_t* ptr = startAttr; ptr < endAttr; ptr+=4) {
 				if (*reinterpret_cast<const uint8_t**>(ptr) == reinterpret_cast<const uint8_t*>(p)) {
 					return true;
 				}
@@ -277,13 +276,13 @@ struct Element
 {
 	void* m_ptr;
 	bool m_isGarbage;
-	char const* m_file;
+	char const* m_stackTrace;
 	std::size_t m_size;
 	Element* m_next;
 	Element() : m_ptr(nullptr),
 		m_next(nullptr),
 		m_isGarbage(true),
-		m_file(nullptr),
+		m_stackTrace(nullptr),
 		m_size(0) {}
 };
 
@@ -294,7 +293,7 @@ std::recursive_mutex g_alloc_dealloc_mtx;
 
 static unsigned GetAllocatedPointersCount()
 {
-	int counter = 0;
+	unsigned counter = 0;
 	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
 	{
@@ -315,7 +314,7 @@ static void* MyNew(std::size_t size)
 		{
 			ptrElement->m_isGarbage = false;
 			ptrElement->m_ptr = ptr;
-			ptrElement->m_file = trace;
+			ptrElement->m_stackTrace = trace;
 			ptrElement->m_size = size;
 			ptrElement->m_next = nullptr;
 			g_alloc_dealloc_mtx.lock();
@@ -331,12 +330,11 @@ static void* MyNew(std::size_t size)
 			g_alloc_dealloc_mtx.unlock();
 			return ptr;
 		}
+		free(ptr);
 	}
+	free(trace);
 	throw std::bad_alloc{};
 }
-
-
-#undef new
 
 void* operator new(std::size_t size)
 {
@@ -348,7 +346,7 @@ void* operator new[](std::size_t size)
 	return MyNew(size);
 }
 
-void operator delete(void* p)
+void operator delete(void* p) noexcept
 {
 	if (p) {
 		g_alloc_dealloc_mtx.lock();
@@ -387,7 +385,7 @@ void operator delete(void* p)
 	}
 }
 
-void operator delete[](void* p)
+void operator delete[](void* p) noexcept
 {
 	delete(p);
 }
@@ -421,13 +419,13 @@ Element* RemoveElementFromDeletedList(Element* pPrev, Element* pCurr) {
 	}
 	if (pPrev) {
 		pPrev->m_next = pCurr->m_next;
-		free((void*)pCurr->m_file);
+		free((void*)pCurr->m_stackTrace);
 		free(pCurr);
 		return pPrev->m_next;
 	}
 	auto temp = g_deletedPointersHead;
 	g_deletedPointersHead = g_deletedPointersHead->m_next;
-	free((void*)temp->m_file);
+	free((void*)temp->m_stackTrace);
 	free(temp);
 	return g_deletedPointersHead;
 }
@@ -463,7 +461,7 @@ void DetectDanglingPointers() {
 			else
 			{
 				printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-				printf("\033[0m\n %s", iter->m_file);
+				printf("\033[0m\n %s", iter->m_stackTrace);
 			}
 		}
 		prev.m_next = iter;
@@ -487,7 +485,7 @@ void DetectDanglingPointers() {
 				if (IsPatternFound(reinterpret_cast<void*>(stack->data.m_start), stackSize, &ite->m_ptr, sizeof(void*)))
 				{
 					printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-					printf("\033[0m\n %s", ite->m_file);
+					printf("\033[0m\n %s", ite->m_stackTrace);
 				}
 			}
 			prev.m_next = ite;
@@ -513,7 +511,7 @@ void DetectDanglingPointers() {
 				if (IsPatternFound(ite2->m_ptr, ite2->m_size, &ite->m_ptr, sizeof(void*)))
 				{
 					printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-					printf("\033[0m\n %s", ite->m_file);
+					printf("\033[0m\n %s", ite->m_stackTrace);
 				}
 
 				ite2 = ite2->m_next;
@@ -542,14 +540,8 @@ void DetectMemoryLeak()
 	//scan all threads stacks.
 	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
 		auto ite = g_allocatedPointersHead;
-		int dummy = 0;
-		dummy++;
-		void* stackBottom = &dummy;
-		auto stackSize = stack->data.m_end - reinterpret_cast<uintptr_t>(stackBottom);
-		if (stackSize > 40000) {
-			stackSize = stack->data.m_end - stack->data.m_start;
-			stackBottom = reinterpret_cast<void*>(stack->data.m_start);
-		}
+		auto stackSize = stack->data.m_end - stack->data.m_start;
+		auto stackBottom = reinterpret_cast<void*>(stack->data.m_start);
 		while (ite)
 		{
 			if (ite->m_isGarbage && IsPatternFound(stackBottom, stackSize, &ite->m_ptr, sizeof(void*))) {
@@ -596,7 +588,7 @@ void DetectMemoryLeak()
 		if (ite->m_isGarbage)
 		{
 			printf("\n\033[37;41m Memory leak detected of pointer allocated in:");
-			printf("\033[0m\n %s", ite->m_file);
+			printf("\033[0m\n %s", ite->m_stackTrace);
 		}
 		ite = ite->m_next;
 	}
@@ -632,8 +624,8 @@ void ResetAllocationList()
 	{
 		free(ite->m_ptr);
 		ite->m_ptr = nullptr;
-		free((void*)ite->m_file);
-		ite->m_file = nullptr;
+		free((void*)ite->m_stackTrace);
+		ite->m_stackTrace = nullptr;
 		auto temp = ite;
 		ite = ite->m_next;
 		free(temp);
@@ -643,8 +635,8 @@ void ResetAllocationList()
 	ite = g_deletedPointersHead;
 	while (ite)
 	{
-		if (ite->m_file) {
-			free((void*)ite->m_file);
+		if (ite->m_stackTrace) {
+			free((void*)ite->m_stackTrace);
 		}
 		auto temp = ite;
 		ite = ite->m_next;

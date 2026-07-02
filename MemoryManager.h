@@ -15,8 +15,8 @@ extern std::recursive_mutex g_alloc_dealloc_mtx;
 void* operator new(std::size_t size);
 void* operator new[](std::size_t size);
 
-void operator delete(void* p);
-void operator delete[](void* p);
+void operator delete(void* p) noexcept;
+void operator delete[](void* p) noexcept;
 
 void ResetAllocatedPointers();
 void DetectDanglingPointers();
@@ -57,6 +57,7 @@ public:
 
         while (current) {
             Node* next = current->next;
+            current->~Node();
             free(current);
             current = next;
         }
