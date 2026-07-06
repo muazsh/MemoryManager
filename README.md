@@ -6,11 +6,11 @@ This is a simple tool that enables detecting and cleaning memory leaks and detec
 
 ## Reachability
 
-The considers thread stacks and Data segement and BSS segment as a root for reachability, so pointers which are referenced there are considered reachable, then those pointers stored in the a heap which are reachable via a reachable pointer are also reachable.
+The tool considers thread stacks and Data segement and BSS segment a root for reachability, so pointers which are referenced in that root are considered reachable, also those pointers stored in the heap which are reachable via a reachable pointer are also reachable.
 
 ## Methodology
 
-This tool overloads `new` and `delete` operators to keep track of the allocated pointers in the allocation list and the freed pointers in the deallocation list.
+This tool overloads `new` and `delete` operators to keep track of the allocated pointers in the **allocation list** and the freed pointers in the **deallocation list**.
 
 ### Memory Leak
 
@@ -36,13 +36,16 @@ Analog when dangling pointers detection is triggered the stacks get scanned for 
 ```c++
 DetectMemoryLeak();
 ```
-`DetectMemoryLeak` function detects and prints out memory leak places in the code without calling `delete` on those leaks, so it can be used for profiling for example. On the other hand calling `CollectGarbage` will detect leaks and call `delete` on the detected leaks.
+`DetectMemoryLeak` function detects and prints out memory leak allocation places in the code without calling `delete` on those leaks, so it can be used for profiling for example. On the other hand calling `CollectGarbage` will detect leaks and call `delete` on the detected leaks.
 
 - Somewhere in the program where you think dangling pointer took place, call:
 ```c++
 DetectDanglingPointers();
 ```
 The tool will report those deleted pointers but still reachable via the reachability process.
+
+## Note
+- While detecting memory leaks or dangling pointers, the tool holds a global lock to prevent allocating/deallocating heap memory, so the threads which need to do so will get suspended until the process is done. However; the threads are free to use there stacks which in the end wont affect the accurcy of the results.
 
 ## Limitations:
 - The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
