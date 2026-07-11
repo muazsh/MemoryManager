@@ -2,27 +2,51 @@
 
 # Memory Manager
 
-This is a simple tool that enables detecting and cleaning memory leaks and detecting dangling pointers, the idea is that memory leaks take place when there are some allocations in the heap and there are no references in the stack directly or indirectly point to those allocatations, and the dangling pointer is a pointer which points to some already freed allocation.
+This is a simple tool that enables detecting and cleaning memory leaks and detecting dangling pointers, the idea is that memory leaks take place when there are some allocations in the heap and there are no references in the stack or in the Data or BSS segments directly or indirectly point to those allocatations, and the dangling pointer is a reachable pointer which points to some already freed allocation.
 
-This tool overloads `new` and `delete` operators to keep track of what is allocated and what is freed. 
+## Reachability
 
-Once memory leaks detection is triggered the stack gets scanned from bottom to top for each **allocated** pointer looking for a reference to it whether in the stack itself or in a heap reachable by other pointer in the stack directly or indirectly. Analog when dangling pointers detection is triggered the stack gets scanned from bottom to top for each **deleted** pointer looking for a reference to it whether in the stack itself or in a heap reachable by other pointer in the stack directly or indirectly.  
+The tool considers thread stacks and Data segement and BSS segment a root for reachability, so pointers which are referenced in that root are considered reachable, also those pointers stored in the heap which are reachable via a reachable pointer are also reachable.
 
-The tool can distinguish between leaks and indirect pointers (those pointers which have no references in the stack because they are pointers inside some other pointers in the heap).
+## Methodology
 
-# Usage:
+This tool overloads `new` and `delete` operators to keep track of the allocated pointers in the **allocation list** and the freed pointers in the **deallocation list**.
 
-- Somewhere in the program where you think memory leak took place call:
+### Memory Leak
+
+A memory leak takes place if a pointer in the **allocation list** but is **not reachable**.
+
+### Dangling Pointer
+
+A pointer is a dangling pointer if it is in the **deallocation list** but is **reachable**.
+
+### Garbage Collection
+
+The tools poriveds a function to free the deteced memory leaks.
+
+## How It Works
+
+Once memory leaks detection is triggered the stack of each thread gets scanned from top to bottom for each **allocated** pointer looking for a reference to it whether in the stack itself or in a heap reachable by other pointer in the stack directly or indirectly, likewise Data and BSS segments get scanned. 
+
+Analog when dangling pointers detection is triggered the stacks get scanned for each **deleted** pointer looking for a reference to it whether in the stacks or in a heap reachable via other pointers reachable from the stacks directly or indirectly.  
+
+## Usage:
+
+- Somewhere in the program where you think memory leak took place, call:
 ```c++
-CollectGarbage();
+DetectMemoryLeak();
 ```
-`DetectMemoryLeak` function detects and prints out memory leak places in the code without calling `delete` on those leaks, so it can be used for profiling for example.
+`DetectMemoryLeak` function detects and prints out memory leak allocation places in the code without calling `delete` on those leaks, so it can be used for profiling for example. On the other hand calling `CollectGarbage` will detect leaks and call `delete` on the detected leaks.
 
-- Somewhere in the program where you think dangling pointer took place call:
+- Somewhere in the program where you think dangling pointer took place, call:
 ```c++
 DetectDanglingPointers();
 ```
+The tool will report those deleted pointers but still reachable via the reachability process.
 
-# Limitations:
+## Note
+- While detecting memory leaks or dangling pointers, the tool holds a global lock to prevent allocating/deallocating heap memory, so the threads which need to do so will get suspended until the process is done. However; the threads are free to use there stacks which in the end wont affect the accurcy of the results.
+
+## Limitations:
 - The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
 - Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack, same for dangling pointer where some reported dangling pointers might still be in some non-reachable stack frame, see the examples in main.cpp.
