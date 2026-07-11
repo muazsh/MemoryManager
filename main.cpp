@@ -26,7 +26,7 @@ void MakeNoLeaks() {
 }
 
 void DetectNoLeaks() {
-	ResetAllocatedPointers();
+	SetAllAllocationAsGarbage();
 	MakeNoLeaks();
 	auto count = CollectGarbage();
 	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are detected" << "\033[0m" << std::endl << std::endl;
@@ -69,21 +69,21 @@ MyStructWithPtr* GetDeepDanglingPtr() {
 	return ptr;
 }
 void DanglingPointersDetection() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	auto danglingPtr = GetDenaglingPtr();
 	auto deepDanglingPtr = GetDeepDanglingPtr();
 	DetectDanglingPointers();
 }
 
 void Detect1000LeaksInCalledFunction() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	Leak1000();
 	auto count = CollectGarbage();
 	std::cout << "\033[37;41m" << "In function " << std::string(__FUNCTION__) << " " << std::to_string(count) << " leaks are detected" << "\033[0m" << std::endl << std::endl;
 }
 
 void DetectLeaksInLoop() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	for (int i = 0; i < 10; i++)
 	{
 		auto st1 = new MyStruct();
@@ -94,7 +94,7 @@ void DetectLeaksInLoop() {
 }
 
 void DetectLeaksInBlock() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	{
 		auto st1 = new MyStruct();
 		st1 = new MyStruct();
@@ -107,7 +107,7 @@ void DetectLeaksInBlock() {
 }
 
 void DetectIndirectLeaks() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	LeakMyStructWithPtr(); // 2 leaks in here;
 	MyStructWithPtr myStructWithPtr; // no leak despite allocation in default ctor.
 	auto ptrMyStructWithPtr = new MyStructWithPtr(); // no leaks despite inner pointer is not in the stack rather in the heap.
@@ -116,7 +116,7 @@ void DetectIndirectLeaks() {
 }
 
 void DetectLeaksInThread() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	MyStruct* myStruct = nullptr;
 	{
 		std::thread([&myStruct] { myStruct = new MyStruct();
@@ -131,7 +131,7 @@ void DetectLeaksInThread() {
 double* globalDanglingPtr = nullptr;
 
 void GlobalDanglingPointer() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	auto* pt = new double(10);
 	globalDanglingPtr = pt;
 	delete pt;
@@ -147,7 +147,7 @@ void AssignStaticPtr0() {
 	AssignStaticPtr();
 }
 void StaticDoesNotLeak() {
-	ResetAllocationList();
+	ResetAllocationDeallocationLists();
 	{
 		AssignStaticPtr0();
 	}

@@ -18,11 +18,11 @@ void* operator new[](std::size_t size);
 void operator delete(void* p) noexcept;
 void operator delete[](void* p) noexcept;
 
-void ResetAllocatedPointers();
+void SetAllAllocationAsGarbage();
 void DetectDanglingPointers();
 void DetectMemoryLeak();
 unsigned CollectGarbage();
-void ResetAllocationList();
+void ResetAllocationDeallocationLists();
 bool IsAssignedToGlobalOrStatic(const void* p);
 
 

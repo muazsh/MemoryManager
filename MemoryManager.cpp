@@ -390,7 +390,7 @@ void operator delete[](void* p) noexcept
 	delete(p);
 }
 
-void ResetAllocatedPointers()
+void SetAllAllocationAsGarbage()
 {
 	auto ite = g_allocatedPointersHead;
 	while (ite != nullptr)
@@ -447,78 +447,78 @@ void DetectDanglingPointers() {
 		}
 	};
 	g_alloc_dealloc_mtx.lock();
-	auto iter = g_deletedPointersHead;
-	Element prev;
-	while (iter != nullptr)
+	auto deletedButAssignedToGlobal = g_deletedPointersHead;
+	Element prevElement;
+	while (deletedButAssignedToGlobal != nullptr)
 	{
-		if (IsAssignedToGlobalOrStatic(iter->m_ptr))
+		if (IsAssignedToGlobalOrStatic(deletedButAssignedToGlobal->m_ptr))
 		{
-			if (IsInAllocatedChecker::IsInAllocated(iter->m_ptr))
+			if (IsInAllocatedChecker::IsInAllocated(deletedButAssignedToGlobal->m_ptr))
 			{
-				iter = RemoveElementFromDeletedList(prev.m_next, iter);
+				deletedButAssignedToGlobal = RemoveElementFromDeletedList(prevElement.m_next, deletedButAssignedToGlobal);
 				continue;
 			}
 			else
 			{
 				printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-				printf("\033[0m\n %s", iter->m_stackTrace);
+				printf("\033[0m\n %s", deletedButAssignedToGlobal->m_stackTrace);
 			}
 		}
-		prev.m_next = iter;
-		iter = iter->m_next;
+		prevElement.m_next = deletedButAssignedToGlobal;
+		deletedButAssignedToGlobal = deletedButAssignedToGlobal->m_next;
 	}
 	LinkedList<StackBoundary> stacks;
 	GetThreadStackBoundaries(stacks);
 	//scan all threads stacks.
 	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
-		auto ite = g_deletedPointersHead;
+		auto deletedButReachableFromStack = g_deletedPointersHead;
 		auto stackSize = stack->data.m_end - stack->data.m_start;
 		Element prev;
-		while (ite != nullptr)
+		while (deletedButReachableFromStack != nullptr)
 		{
-			if (IsInAllocatedChecker::IsInAllocated(ite->m_ptr))
+			if (IsInAllocatedChecker::IsInAllocated(deletedButReachableFromStack->m_ptr))
 			{
-				ite = RemoveElementFromDeletedList(prev.m_next, ite);
+				deletedButReachableFromStack = RemoveElementFromDeletedList(prev.m_next, deletedButReachableFromStack);
 				continue;
 			}
 			else {
-				if (IsPatternFound(reinterpret_cast<void*>(stack->data.m_start), stackSize, &ite->m_ptr, sizeof(void*)))
+				if (IsPatternFound(reinterpret_cast<void*>(stack->data.m_start), stackSize, &deletedButReachableFromStack->m_ptr, sizeof(void*)))
 				{
 					printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-					printf("\033[0m\n %s", ite->m_stackTrace);
+					printf("\033[0m\n %s", deletedButReachableFromStack->m_stackTrace);
 				}
 			}
-			prev.m_next = ite;
-			ite = ite->m_next;
+			prev.m_next = deletedButReachableFromStack;
+			deletedButReachableFromStack = deletedButReachableFromStack->m_next;
 		}
 	}
 
 	//scan reachable heap.
-	auto ite = g_deletedPointersHead;
-	prev.m_next = nullptr;
-	while (ite != nullptr)
+	auto deletedButReachableFromHeap = g_deletedPointersHead;
+	prevElement.m_next = nullptr;
+	while (deletedButReachableFromHeap != nullptr)
 	{
-		if (IsInAllocatedChecker::IsInAllocated(ite->m_ptr))
+		if (IsInAllocatedChecker::IsInAllocated(deletedButReachableFromHeap->m_ptr))
 		{
-			ite = RemoveElementFromDeletedList(prev.m_next, ite);
+			deletedButReachableFromHeap = RemoveElementFromDeletedList(prevElement.m_next, deletedButReachableFromHeap);
 			continue;
 		}
 		else {
-			auto ite2 = g_allocatedPointersHead;
-			while (ite2 != nullptr)
+			auto allocatedPtrItr = g_allocatedPointersHead;
+			while (allocatedPtrItr != nullptr)
 			{
 
-				if (IsPatternFound(ite2->m_ptr, ite2->m_size, &ite->m_ptr, sizeof(void*)))
+				if (IsPatternFound(allocatedPtrItr->m_ptr, allocatedPtrItr->m_size, &deletedButReachableFromHeap->m_ptr, sizeof(void*)))
 				{
 					printf("\n\033[37;41m Dangling pointer of the deleted pointer allocated in:");
-					printf("\033[0m\n %s", ite->m_stackTrace);
+					printf("\033[0m\n %s", deletedButReachableFromHeap->m_stackTrace);
 				}
 
-				ite2 = ite2->m_next;
+				allocatedPtrItr = allocatedPtrItr->m_next;
 			}
 		}
-		prev.m_next = ite;
-		ite = ite->m_next;
+		prevElement.m_next = deletedButReachableFromHeap;
+		deletedButReachableFromHeap = deletedButReachableFromHeap->m_next;
 	}
 	g_alloc_dealloc_mtx.unlock();
 }
@@ -526,120 +526,121 @@ void DetectDanglingPointers() {
 void DetectMemoryLeak()
 {
 	g_alloc_dealloc_mtx.lock();
-	ResetAllocatedPointers();
-	auto iter = g_allocatedPointersHead;
-	while (iter != nullptr)
+	SetAllAllocationAsGarbage();
+	auto reachableFromGlobal = g_allocatedPointersHead;
+	while (reachableFromGlobal != nullptr)
 	{
-		if (iter->m_isGarbage && IsAssignedToGlobalOrStatic(iter->m_ptr)) {
-			iter->m_isGarbage = false; // pointer is reachable.
+		if (reachableFromGlobal->m_isGarbage && IsAssignedToGlobalOrStatic(reachableFromGlobal->m_ptr)) {
+			reachableFromGlobal->m_isGarbage = false; // pointer is reachable.
 		}
-		iter = iter->m_next;
+		reachableFromGlobal = reachableFromGlobal->m_next;
 	}
 	LinkedList<StackBoundary> stacks;
 	GetThreadStackBoundaries(stacks);
 	//scan all threads stacks.
 	for (auto stack = stacks.head; stack != nullptr; stack = stack->next) {
-		auto ite = g_allocatedPointersHead;
+		auto reachableFromStack = g_allocatedPointersHead;
 		auto stackSize = stack->data.m_end - stack->data.m_start;
 		auto stackBottom = reinterpret_cast<void*>(stack->data.m_start);
-		while (ite)
+		while (reachableFromStack)
 		{
-			if (ite->m_isGarbage && IsPatternFound(stackBottom, stackSize, &ite->m_ptr, sizeof(void*))) {
-				ite->m_isGarbage = false; // pointer is reachable.
+			if (reachableFromStack->m_isGarbage && IsPatternFound(stackBottom, stackSize, &reachableFromStack->m_ptr, sizeof(void*))) {
+				reachableFromStack->m_isGarbage = false; // pointer is reachable.
 			}
-			ite = ite->m_next;
+			reachableFromStack = reachableFromStack->m_next;
 		}
 	}
 
 	//scan reachable heap.
-	auto ite = g_allocatedPointersHead;
-	while (ite)
+	auto reachableFromHeap = g_allocatedPointersHead;
+	while (reachableFromHeap)
 	{
 		bool iteFixed = false;
-		if (ite->m_isGarbage)
+		if (reachableFromHeap->m_isGarbage)
 		{
-			auto ite2 = g_allocatedPointersHead;
-			while (ite2)
+			auto heapScanAddress = g_allocatedPointersHead;
+			while (heapScanAddress)
 			{
-				if (!ite2->m_isGarbage)
+				if (!heapScanAddress->m_isGarbage)
 				{
-					int i = 0;
-					if (IsPatternFound(ite2->m_ptr, ite2->m_size, &ite->m_ptr, sizeof(void*)))
+					if (IsPatternFound(heapScanAddress->m_ptr, heapScanAddress->m_size, &reachableFromHeap->m_ptr, sizeof(void*)))
 					{
-						ite->m_isGarbage = false; // pointer is reachable.
+						reachableFromHeap->m_isGarbage = false; // pointer is reachable.
 						iteFixed = true;
 						break;
 					}
 				}
-				ite2 = ite2->m_next;
+				heapScanAddress = heapScanAddress->m_next;
 			}
 		}
 		if (iteFixed)
 		{
-			ite = g_allocatedPointersHead;
+			reachableFromHeap = g_allocatedPointersHead;
 			continue;
 		}
-		ite = ite->m_next;
+		reachableFromHeap = reachableFromHeap->m_next;
 	}
 
-	ite = g_allocatedPointersHead;
-	while (ite)
+	auto allocatedPtr = g_allocatedPointersHead;
+	while (allocatedPtr)
 	{
-		if (ite->m_isGarbage)
+		if (allocatedPtr->m_isGarbage)
 		{
 			printf("\n\033[37;41m Memory leak detected of pointer allocated in:");
-			printf("\033[0m\n %s", ite->m_stackTrace);
+			printf("\033[0m\n %s", allocatedPtr->m_stackTrace);
 		}
-		ite = ite->m_next;
+		allocatedPtr = allocatedPtr->m_next;
 	}
 	g_alloc_dealloc_mtx.unlock();
 }
 
 unsigned CollectGarbage()
 {
+	g_alloc_dealloc_mtx.lock();
 	DetectMemoryLeak();
 	unsigned count = 0;
-	auto ite = g_allocatedPointersHead;
-	while (ite)
+	auto allocatedPtrItr = g_allocatedPointersHead;
+	while (allocatedPtrItr)
 	{
-		if (ite->m_isGarbage)
+		if (allocatedPtrItr->m_isGarbage)
 		{
 			count++;
-			auto next = ite->m_next;
-			delete ite->m_ptr;
-			ite = next;
+			auto next = allocatedPtrItr->m_next;
+			delete allocatedPtrItr->m_ptr;
+			allocatedPtrItr = next;
 		}
 		else
 		{
-			ite = ite->m_next;
+			allocatedPtrItr = allocatedPtrItr->m_next;
 		}
 	}
+	g_alloc_dealloc_mtx.unlock();
 	return count;
 }
 
-void ResetAllocationList()
+void ResetAllocationDeallocationLists()
 {
-	auto ite = g_allocatedPointersHead;
-	while (ite != nullptr)
+	auto allocatedPtrItr = g_allocatedPointersHead;
+	while (allocatedPtrItr != nullptr)
 	{
-		free(ite->m_ptr);
-		ite->m_ptr = nullptr;
-		free((void*)ite->m_stackTrace);
-		ite->m_stackTrace = nullptr;
-		auto temp = ite;
-		ite = ite->m_next;
+		free(allocatedPtrItr->m_ptr);
+		allocatedPtrItr->m_ptr = nullptr;
+		free((void*)allocatedPtrItr->m_stackTrace);
+		allocatedPtrItr->m_stackTrace = nullptr;
+		auto temp = allocatedPtrItr;
+		allocatedPtrItr = allocatedPtrItr->m_next;
 		free(temp);
 	}
 	g_allocatedPointersHead = nullptr;
 
-	ite = g_deletedPointersHead;
-	while (ite)
+	auto deletedPtrItr = g_deletedPointersHead;
+	while (deletedPtrItr)
 	{
-		if (ite->m_stackTrace) {
-			free((void*)ite->m_stackTrace);
+		if (deletedPtrItr->m_stackTrace) {
+			free((void*)deletedPtrItr->m_stackTrace);
 		}
-		auto temp = ite;
-		ite = ite->m_next;
+		auto temp = deletedPtrItr;
+		deletedPtrItr = deletedPtrItr->m_next;
 		free(temp);
 	}
 	g_deletedPointersHead = nullptr;
