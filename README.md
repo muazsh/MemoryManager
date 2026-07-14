@@ -2,7 +2,7 @@
 
 # Memory Manager
 
-This is a simple tool that enables detecting and cleaning memory leaks and detecting dangling pointers, the idea is that memory leaks take place when there are some allocations in the heap and there are no references in the stack or in the Data or BSS segments directly or indirectly point to those allocatations, and the dangling pointer is a reachable pointer which points to some already freed allocation.
+This tool enables detecting and cleaning memory leaks and detecting dangling pointers, where memory leaks take place when there are some allocations in the heap and there are no references in the stack or in the Data or BSS segments directly or indirectly point to those allocatations, and the dangling pointer is a reachable pointer which points to some already freed allocation.
 
 ## Reachability
 
@@ -22,7 +22,7 @@ A pointer is a dangling pointer if it is in the **deallocation list** but is **r
 
 ### Garbage Collection
 
-The tools poriveds a function to free the deteced memory leaks.
+The tool poriveds a function to free the deteced memory leaks.
 
 ## How It Works
 
