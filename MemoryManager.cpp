@@ -553,12 +553,13 @@ void DetectMemoryLeak()
 
 	//scan reachable heap.
 	auto reachableFromHeap = g_allocatedPointersHead;
+	auto heapRescanAddress = g_allocatedPointersHead;
 	while (reachableFromHeap)
 	{
 		bool iteFixed = false;
 		if (reachableFromHeap->m_isGarbage)
 		{
-			auto heapScanAddress = g_allocatedPointersHead;
+			auto heapScanAddress = heapRescanAddress;
 			while (heapScanAddress)
 			{
 				if (!heapScanAddress->m_isGarbage)
@@ -567,6 +568,7 @@ void DetectMemoryLeak()
 					{
 						reachableFromHeap->m_isGarbage = false; // pointer is reachable.
 						iteFixed = true;
+						heapRescanAddress = reachableFromHeap;
 						break;
 					}
 				}
