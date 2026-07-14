@@ -49,4 +49,4 @@ The tool will report those deleted pointers but still reachable via the reachabi
 
 ## Limitations:
 - The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
-- Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack, same for dangling pointer where some reported dangling pointers might still be in some non-reachable stack frame, see the examples in main.cpp.
+- Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack (False Negative), same for dangling pointer where some reported dangling pointers might still be in the recent stack frame (False Positive). However, both cases are limited to the very recently refernced pointers in the very recent stack frame which should be unwinded and removed already, see the examples in main.cpp.
