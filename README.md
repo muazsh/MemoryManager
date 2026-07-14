@@ -8,6 +8,39 @@ This tool enables detecting and cleaning memory leaks and detecting dangling poi
 
 The tool considers thread stacks and Data segement and BSS segment a root for reachability, so pointers which are referenced in that root are considered reachable, also those pointers stored in the heap which are reachable via a reachable pointer are also reachable.
 
+
+```text
+                    
+
+STACK                                                Data Segment                      Allocation List                        
+┌──────────────────────┐                        ┌──────────────────────┐           ┌──────────────────────┐    
+│         ...          │                        │         ...          │           │ ptr1 0x10001024      │ Reachable from Data segment
+├──────────────────────┤                        ├──────────────────────┤           ├──────────────────────┤
+│ ptr0 = 0x10001000    │        ┌──────────────── ptr1 = 0x10001024    │           │      0x10000012      │ Not Reachable (Memory Leak)
+├──────────────────────┤        │               ├──────────────────────┤           ├──────────────────────┤
+│ ptr2 = 0x10002040    │        │               │         ...          │           │ ptr2 0x10002040      │ Reachable from the stack
+├────────│─────────────┤        │               └──────────────────────┘           ├──────────────────────┤
+│        │ ...         │        │                                                  │ ptr3 0x100A4080      │ Reachable from the heap
+└────────│─────────────┘        │                                                  ├──────────────────────┤
+         │                      │                                                  │         ...          │
+         │                      │                                                  └──────────────────────┘
+         │                      │                         HEAP                         Deallocation List
+         │                      ▼                ┌──────────────────────┐          ┌──────────────────────┐
+         │              0x10001024 ───────────►  │ value = 10           │          │ ptr0 0x10001000      │ Reachable from the stack (Dangling Pointer)
+         │                                       ├──────────────────────┤          ├──────────────────────┤
+         │                                       │         ...          │          │         ...          │
+         │                                       ├──────────────────────┤          └──────────────────────┘
+         └───────────►  0x10002040 ───────────►  │ value = 1337         │
+                                                 ├──────────────────────┤
+                                ┌───────────────── ptr3 = 0x100A4080    │
+                                │                ├──────────────────────┤
+                                │                │         ...          │
+                                ▼                ├──────────────────────┤
+                        0x100A4080 ───────────►  │ value = 500          │
+                                                 └──────────────────────┘
+                         
+```
+
 ## Methodology
 
 This tool overloads `new` and `delete` operators to keep track of the allocated pointers in the **allocation list** and the freed pointers in the **deallocation list**.
