@@ -78,7 +78,25 @@ The tool will report those deleted pointers but still reachable via the reachabi
 
 ## Note
 - While detecting memory leaks or dangling pointers, the tool holds a global lock to prevent allocating/deallocating heap memory, so the threads which need to do so will get suspended until the process is done. However; the threads are free to use there stacks which in the end wont affect the accurcy of the results.
+- Memory Leak detection can have false negative cases but **cannot** have false positive, so cleaning them is safe.
 
 ## Limitations:
 - The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
 - Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack (False Negative), same for dangling pointer where some reported dangling pointers might still be in the recent stack frame (False Positive). However, both cases are limited to the very recently refernced pointers in the very recent stack frame which should be unwinded and removed already, see the examples in main.cpp.
+
+## Tests
+In the following testing results, the detection is triggered directly after the leak/dangling took place, so they are affected by the second point in Limitation section above.
+
+### Meamory Leak Tests
+| Compiler | No Leaks | 1000 Leaks in a Loop in a Function Call | 20 Leaks in a 10x Loop | 4 leaks in an Adjacent Block | Leak Inside a Leak | 2 Leaks in a Thread | Pointer Assigned to a Static |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| GCC x64 | 0 | 999 | 18 | 1 | 2 | 1 | No Leak |
+| Clang x64 | 0 | 996 | 18 | 1 | 2 | 1 | No Leak |
+| MSVC x64 | 0 | 995 | 18 | 0 | 0 | 1 | No Leak |
+
+### Dangling Pointer Tests
+| Compiler | Returned Dangling Pointer | Returned Pointer with Dangling Pointer Inside | Global Dangling Pointer |
+| --- | --- | --- | --- |
+| GCC x64 | Not Detected | Detected | Detected |
+| Clang x64 | Not Detected | Detected | Detected |
+| MSVC x64 | Detected | Detected | Detected |
