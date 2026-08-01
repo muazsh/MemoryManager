@@ -77,11 +77,11 @@ DetectDanglingPointers();
 The tool will report those deleted pointers but still reachable via the reachability process.
 
 ## Note
-- While detecting memory leaks or dangling pointers, the tool holds a global lock to prevent allocating/deallocating heap memory, so the threads which need to do so will get suspended until the process is done. However; the threads are free to use there stacks which in the end wont affect the accurcy of the results.
+- During detecting memory leaks or dangling pointers, the tool holds a global lock to prevent allocating/deallocating heap memory, so the threads which need to do so will get suspended until the process is done. However; the threads are free to use there stacks which in the end wont affect the accurcy of the results.
 - Memory Leak detection can have false negative cases but **cannot** have false positive, so cleaning them is safe.
 
 ## Limitations:
-- The tool assumes a continuous stack memory space, which is not of C++ standard, but for most if not all compilers the stack is a whole and not fragmented.
+- The tool assumes a continuous stack memory space, but for most if not all compilers, the stack is by default a whole and not fragmented unless some measures are taken like `-fsplit-stack`.
 - Due to C++ runtime implementation where the last stack frame which should have been removed stands still in the stack, the tool might miss some leaks because it still can find references to those leaks in the stack (False Negative), same for dangling pointer where some reported dangling pointers might still be in the recent stack frame (False Positive). However, both cases are limited to the very recently refernced pointers in the very recent stack frame which should be unwinded and removed already, see the examples in main.cpp.
 
 ## Tests
