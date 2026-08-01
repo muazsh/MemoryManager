@@ -88,7 +88,7 @@ The tool will report those deleted pointers but still reachable via the reachabi
 In the following testing results, the detection is triggered directly after the leak/dangling took place, so they are affected by the second point in Limitation section above.
 
 ### Meamory Leak Tests
-| Compiler | No Leaks | 1000 Leaks in a Loop in a Function Call | 20 Leaks in a 10x Loop | 4 leaks in an Adjacent Block | Leak Inside a Leak | 2 Leaks in a Thread | Pointer Assigned to a Static |
+| Compiler | No Leaks | 1000 Leaks in a Loop in a Function Call | 20 Leaks in a 10x Loop | 4 leaks in an Adjacent Block | a Leak Inside a Leak | 2 Leaks in a Thread | Pointer Assigned to a Static |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | GCC x64 | 0 | 999 | 18 | 1 | 2 | 1 | No Leak |
 | Clang x64 | 0 | 996 | 18 | 1 | 2 | 1 | No Leak |
