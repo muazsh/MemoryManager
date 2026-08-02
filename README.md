@@ -64,7 +64,7 @@ Analog when dangling pointers detection is triggered the stacks get scanned for 
 
 ## Usage:
 
-- Somewhere in the program where you think memory leak took place, call:
+- Just include the header `MemoryManager.h` and let its source file `MemoryManager.cpp` be reachable, then somewhere in the program where you think memory leak took place, call:
 ```c++
 DetectMemoryLeak();
 ```
